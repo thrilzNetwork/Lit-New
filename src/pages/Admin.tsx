@@ -36,8 +36,15 @@ export const Admin: React.FC = () => {
   const [authForm, setAuthForm] = useState({ email: '', password: '', name: '' });
   const [authError, setAuthError] = useState('');
 
+  const socketRef = React.useRef<any>(null);
+
   useEffect(() => {
     checkAuth();
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
+    };
   }, []);
 
   const checkAuth = async () => {
@@ -57,7 +64,11 @@ export const Admin: React.FC = () => {
   };
 
   const setupSocket = () => {
+    if (socketRef.current) return;
+    
     const socket = io();
+    socketRef.current = socket;
+    
     socket.on('new_order', (order: Order) => {
       setOrders(prev => [order, ...prev]);
       setNewOrderAlert(true);
@@ -70,34 +81,39 @@ export const Admin: React.FC = () => {
         fetchLogs('order', id);
       }
     });
-    return () => socket.disconnect();
   };
 
   const fetchData = async () => {
     setLoading(true);
-    const [ordersRes, leadsRes, settingsRes, productsRes, promosRes] = await Promise.all([
-      fetch('/api/orders'),
-      fetch('/api/leads'),
-      fetch('/api/settings'),
-      fetch('/api/products'),
-      fetch('/api/admin/promos')
-    ]);
-    
-    if (ordersRes.ok) setOrders(await ordersRes.json());
-    if (leadsRes.ok) setLeads(await leadsRes.json());
-    if (settingsRes.ok) setSettings(await settingsRes.json());
-    if (productsRes.ok) setProducts(await productsRes.json());
-    if (promosRes.ok) setPromos(await promosRes.json());
-    
-    // Fetch users if admin
-    const meRes = await fetch('/api/auth/me');
-    const me = await meRes.json();
-    if (me.role === 'admin') {
-      const usersRes = await fetch('/api/admin/users');
-      if (usersRes.ok) setUsers(await usersRes.json());
+    try {
+      const [ordersRes, leadsRes, settingsRes, productsRes, promosRes] = await Promise.all([
+        fetch('/api/orders'),
+        fetch('/api/leads'),
+        fetch('/api/settings'),
+        fetch('/api/products'),
+        fetch('/api/admin/promos')
+      ]);
+      
+      if (ordersRes.ok) setOrders(await ordersRes.json());
+      if (leadsRes.ok) setLeads(await leadsRes.json());
+      if (settingsRes.ok) setSettings(await settingsRes.json());
+      if (productsRes.ok) setProducts(await productsRes.json());
+      if (promosRes.ok) setPromos(await promosRes.json());
+      
+      // Fetch users if admin
+      const meRes = await fetch('/api/auth/me');
+      if (meRes.ok) {
+        const me = await meRes.json();
+        if (me.role === 'admin') {
+          const usersRes = await fetch('/api/admin/users');
+          if (usersRes.ok) setUsers(await usersRes.json());
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    } finally {
+      setLoading(false);
     }
-    
-    setLoading(false);
   };
 
   const fetchLogs = async (type: 'lead' | 'order', id: string) => {

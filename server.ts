@@ -3,8 +3,11 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import Database from "better-sqlite3";
+// @ts-ignore
 import { sql } from "@vercel/postgres";
+// @ts-ignore
 import { v2 as cloudinary } from "cloudinary";
+// @ts-ignore
 import multer from "multer";
 import { createServer } from "http";
 import { Server } from "socket.io";
@@ -49,6 +52,11 @@ const query = async (text: string, params: any[] = []) => {
 const getOne = async (text: string, params: any[] = []) => {
   const rows = await query(text, params);
   return rows[0] || null;
+};
+
+const getProducts = async () => {
+  const products = await query("SELECT * FROM products");
+  return products.map((p: any) => ({ ...p, benefits: JSON.parse(p.benefits) }));
 };
 
 const exec = async (text: string) => {
@@ -270,9 +278,9 @@ const initDb = async () => {
   }
 
   // Initial settings
-  await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ["whatsapp_number", process.env.WHATSAPP_SALES || "+15557089007"]);
-  await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ["currency", process.env.CURRENCY || "USD"]);
-  await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ["shipping_fee", process.env.SHIPPING_FLAT || "10"]);
+  await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ["whatsapp_number", process.env.NEXT_PUBLIC_WHATSAPP_SALES || process.env.WHATSAPP_SALES || "+15557089007"]);
+  await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ["currency", process.env.NEXT_PUBLIC_CURRENCY || process.env.CURRENCY || "USD"]);
+  await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ["shipping_fee", process.env.NEXT_PUBLIC_SHIPPING_FLAT || process.env.SHIPPING_FLAT || "10"]);
 
   // Create default admin if not exists
   const adminEmail = process.env.ADMIN_USER || "admin@lit.com";
@@ -310,12 +318,13 @@ async function startServer() {
 
   app.use(express.json());
   app.use(session({
-    secret: "lit-secret-key",
+    secret: process.env.SESSION_SECRET || "lit-secret-key",
     resave: false,
     saveUninitialized: false,
     cookie: { 
       secure: process.env.NODE_ENV === "production",
-      sameSite: 'lax',
+      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax',
+      httpOnly: true,
       maxAge: 1000 * 60 * 60 * 24 // 24 hours
     }
   }));
@@ -426,8 +435,13 @@ async function startServer() {
 
   // API routes
   app.get("/api/products", async (req, res) => {
-    const products = await query("SELECT * FROM products");
-    res.json(products.map((p: any) => ({ ...p, benefits: JSON.parse(p.benefits) })));
+    try {
+      const products = await getProducts();
+      res.json(products);
+    } catch (error) {
+      console.error("Error fetching products:", error);
+      res.status(500).json({ error: "Error al obtener productos" });
+    }
   });
 
   app.post("/api/admin/products", requireAdmin, async (req, res) => {
@@ -451,41 +465,66 @@ async function startServer() {
       `, [p.id, p.name, p.format, p.specs, p.category, p.price, p.image, p.badge, p.focus, JSON.stringify(p.benefits), p.usage, p.ingredients]);
       res.json({ success: true });
     } catch (error) {
-      console.error(error);
+      console.error("Error saving product:", error);
       res.status(500).json({ error: "Error al guardar el producto" });
     }
   });
 
   app.delete("/api/admin/products/:id", requireAdmin, async (req, res) => {
-    await query("DELETE FROM products WHERE id = ?", [req.params.id]);
-    res.json({ success: true });
+    try {
+      await query("DELETE FROM products WHERE id = ?", [req.params.id]);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      res.status(500).json({ error: "Error al eliminar producto" });
+    }
   });
 
   app.get("/api/promos", async (req, res) => {
-    const promos = await query("SELECT * FROM promos WHERE active = 1");
-    res.json(promos);
+    try {
+      const promos = await query("SELECT * FROM promos WHERE active = 1");
+      res.json(promos);
+    } catch (error) {
+      console.error("Error fetching promos:", error);
+      res.status(500).json({ error: "Error al obtener promociones" });
+    }
   });
 
   app.get("/api/admin/promos", requireAdmin, async (req, res) => {
-    const promos = await query("SELECT * FROM promos");
-    res.json(promos);
+    try {
+      const promos = await query("SELECT * FROM promos");
+      res.json(promos);
+    } catch (error) {
+      console.error("Error fetching admin promos:", error);
+      res.status(500).json({ error: "Error al obtener promociones" });
+    }
   });
 
   app.post("/api/admin/promos", requireAdmin, async (req, res) => {
     const { id, title, description, code, discount, active } = req.body;
-    if (id) {
-      await query("UPDATE promos SET title = ?, description = ?, code = ?, discount = ?, active = ? WHERE id = ?", 
-        [title, description, code, discount, active ? 1 : 0, id]);
-    } else {
-      await query("INSERT INTO promos (title, description, code, discount, active) VALUES (?, ?, ?, ?, ?)", 
-        [title, description, code, discount, active ? 1 : 0]);
+    try {
+      if (id) {
+        await query("UPDATE promos SET title = ?, description = ?, code = ?, discount = ?, active = ? WHERE id = ?", 
+          [title, description, code, discount, active ? 1 : 0, id]);
+      } else {
+        await query("INSERT INTO promos (title, description, code, discount, active) VALUES (?, ?, ?, ?, ?)", 
+          [title, description, code, discount, active ? 1 : 0]);
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error saving promo:", error);
+      res.status(500).json({ error: "Error al guardar promoción" });
     }
-    res.json({ success: true });
   });
 
   app.delete("/api/admin/promos/:id", requireAdmin, async (req, res) => {
-    await query("DELETE FROM promos WHERE id = ?", [req.params.id]);
-    res.json({ success: true });
+    try {
+      await query("DELETE FROM promos WHERE id = ?", [req.params.id]);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting promo:", error);
+      res.status(500).json({ error: "Error al eliminar promoción" });
+    }
   });
 
   app.get("/api/packs", (req, res) => {
@@ -520,17 +559,17 @@ async function startServer() {
 
   // Orders API
   app.post("/api/orders", async (req, res) => {
-    const order = req.body;
-    
-    // Generate Order ID if not provided: LIT-YYYYMMDD-XXXX
-    if (!order.id) {
-      const now = new Date();
-      const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
-      const random = Math.floor(1000 + Math.random() * 9000);
-      order.id = `LIT-${dateStr}-${random}`;
-    }
-
     try {
+      const order = req.body;
+      
+      // Generate Order ID if not provided: LIT-YYYYMMDD-XXXX
+      if (!order.id) {
+        const now = new Date();
+        const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+        const random = Math.floor(1000 + Math.random() * 9000);
+        order.id = `LIT-${dateStr}-${random}`;
+      }
+
       await query(`
         INSERT INTO orders (id, date, customer_name, customer_phone, customer_email, delivery_method, address, items, subtotal, shipping, total, notes)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -554,125 +593,190 @@ async function startServer() {
       
       res.json({ success: true, id: order.id });
     } catch (error) {
-      console.error(error);
+      console.error("Error creating order:", error);
       res.status(500).json({ error: "Error al guardar el pedido" });
     }
   });
 
   app.get("/api/orders", requireAuth, async (req, res) => {
-    const orders = await query("SELECT * FROM orders ORDER BY date DESC");
-    res.json(orders.map(o => ({ ...o, items: JSON.parse(o.items) })));
+    try {
+      const orders = await query("SELECT * FROM orders ORDER BY date DESC");
+      res.json(orders.map(o => ({ ...o, items: JSON.parse(o.items) })));
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+      res.status(500).json({ error: "Error al obtener pedidos" });
+    }
   });
 
   app.get("/api/orders/:id", requireAuth, async (req, res) => {
-    const order: any = await getOne("SELECT * FROM orders WHERE id = ?", [req.params.id]);
-    if (!order) return res.status(404).json({ error: "Pedido no encontrado" });
-    res.json({ ...order, items: JSON.parse(order.items) });
+    try {
+      const order: any = await getOne("SELECT * FROM orders WHERE id = ?", [req.params.id]);
+      if (!order) return res.status(404).json({ error: "Pedido no encontrado" });
+      res.json({ ...order, items: JSON.parse(order.items) });
+    } catch (error) {
+      console.error("Error fetching order detail:", error);
+      res.status(500).json({ error: "Error al obtener detalle del pedido" });
+    }
   });
 
   app.patch("/api/orders/:id/status", requireAuth, async (req, res) => {
-    const { id } = req.params;
-    const { status } = req.body;
-    await query("UPDATE orders SET status = ? WHERE id = ?", [status, id]);
-    
-    // Log status change
-    const created_at = new Date().toISOString();
-    await query(`
-      INSERT INTO activity_logs (order_id, created_at, type, notes, user_id)
-      VALUES (?, ?, ?, ?, ?)
-    `, [id, created_at, 'status_change', `Estado cambiado a ${status}`, req.session.userId]);
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      await query("UPDATE orders SET status = ? WHERE id = ?", [status, id]);
+      
+      // Log status change
+      const created_at = new Date().toISOString();
+      await query(`
+        INSERT INTO activity_logs (order_id, created_at, type, notes, user_id)
+        VALUES (?, ?, ?, ?, ?)
+      `, [id, created_at, 'status_change', `Estado cambiado a ${status}`, req.session.userId]);
 
-    // Notify about status change
-    io.emit("order_status_updated", { id, status });
-    
-    res.json({ success: true });
+      // Notify about status change
+      io.emit("order_status_updated", { id, status });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating order status:", error);
+      res.status(500).json({ error: "Error al actualizar estado del pedido" });
+    }
   });
 
   app.get("/api/orders/:id/logs", requireAuth, async (req, res) => {
-    const logs = await query("SELECT * FROM activity_logs WHERE order_id = ? ORDER BY created_at DESC", [req.params.id]);
-    res.json(logs);
+    try {
+      const logs = await query("SELECT * FROM activity_logs WHERE order_id = ? ORDER BY created_at DESC", [req.params.id]);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching order logs:", error);
+      res.status(500).json({ error: "Error al obtener logs del pedido" });
+    }
   });
 
   app.post("/api/orders/:id/logs", requireAuth, async (req, res) => {
-    const { type, outcome, notes, next_follow_up } = req.body;
-    const created_at = new Date().toISOString();
-    const user_id = req.session.userId;
-    
-    await query(`
-      INSERT INTO activity_logs (order_id, created_at, type, outcome, notes, next_follow_up, user_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [req.params.id, created_at, type, outcome, notes, next_follow_up, user_id]);
-    
-    res.json({ success: true });
+    try {
+      const { type, outcome, notes, next_follow_up } = req.body;
+      const created_at = new Date().toISOString();
+      const user_id = req.session.userId;
+      
+      await query(`
+        INSERT INTO activity_logs (order_id, created_at, type, outcome, notes, next_follow_up, user_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `, [req.params.id, created_at, type, outcome, notes, next_follow_up, user_id]);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error creating order log:", error);
+      res.status(500).json({ error: "Error al crear log del pedido" });
+    }
   });
 
   // Leads API
   app.get("/api/leads", requireAuth, async (req, res) => {
-    const leads = await query("SELECT * FROM leads ORDER BY created_at DESC");
-    res.json(leads);
+    try {
+      const leads = await query("SELECT * FROM leads ORDER BY created_at DESC");
+      res.json(leads);
+    } catch (error) {
+      console.error("Error fetching leads:", error);
+      res.status(500).json({ error: "Error al obtener leads" });
+    }
   });
 
   app.post("/api/leads", async (req, res) => {
-    const { name, phone, email, source, interest } = req.body;
-    const id = `LEAD-${Date.now()}`;
-    const created_at = new Date().toISOString();
-    
-    await query(`
-      INSERT INTO leads (id, created_at, name, phone, email, source, interest)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [id, created_at, name, phone, email, source, interest]);
-    
-    res.json({ id, success: true });
+    try {
+      const { name, phone, email, source, interest } = req.body;
+      const id = `LEAD-${Date.now()}`;
+      const created_at = new Date().toISOString();
+      
+      await query(`
+        INSERT INTO leads (id, created_at, name, phone, email, source, interest)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `, [id, created_at, name, phone, email, source, interest]);
+      
+      res.json({ id, success: true });
+    } catch (error) {
+      console.error("Error creating lead:", error);
+      res.status(500).json({ error: "Error al crear lead" });
+    }
   });
 
   app.get("/api/leads/:id", requireAuth, async (req, res) => {
-    const lead = await getOne("SELECT * FROM leads WHERE id = ?", [req.params.id]);
-    if (!lead) return res.status(404).json({ error: "Lead no encontrado" });
-    res.json(lead);
+    try {
+      const lead = await getOne("SELECT * FROM leads WHERE id = ?", [req.params.id]);
+      if (!lead) return res.status(404).json({ error: "Lead no encontrado" });
+      res.json(lead);
+    } catch (error) {
+      console.error("Error fetching lead detail:", error);
+      res.status(500).json({ error: "Error al obtener detalle del lead" });
+    }
   });
 
   app.patch("/api/leads/:id", requireAuth, async (req, res) => {
-    const { status, assigned_to } = req.body;
-    if (status !== undefined) {
-      await query("UPDATE leads SET status = ? WHERE id = ?", [status, req.params.id]);
+    try {
+      const { status, assigned_to } = req.body;
+      if (status !== undefined) {
+        await query("UPDATE leads SET status = ? WHERE id = ?", [status, req.params.id]);
+      }
+      if (assigned_to !== undefined) {
+        await query("UPDATE leads SET assigned_to = ? WHERE id = ?", [assigned_to, req.params.id]);
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating lead:", error);
+      res.status(500).json({ error: "Error al actualizar lead" });
     }
-    if (assigned_to !== undefined) {
-      await query("UPDATE leads SET assigned_to = ? WHERE id = ?", [assigned_to, req.params.id]);
-    }
-    res.json({ success: true });
   });
 
   app.get("/api/leads/:id/logs", requireAuth, async (req, res) => {
-    const logs = await query("SELECT * FROM activity_logs WHERE lead_id = ? ORDER BY created_at DESC", [req.params.id]);
-    res.json(logs);
+    try {
+      const logs = await query("SELECT * FROM activity_logs WHERE lead_id = ? ORDER BY created_at DESC", [req.params.id]);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching lead logs:", error);
+      res.status(500).json({ error: "Error al obtener logs del lead" });
+    }
   });
 
   app.post("/api/leads/:id/logs", requireAuth, async (req, res) => {
-    const { type, outcome, notes, next_follow_up } = req.body;
-    const created_at = new Date().toISOString();
-    const user_id = req.session.userId;
-    
-    await query(`
-      INSERT INTO activity_logs (lead_id, created_at, type, outcome, notes, next_follow_up, user_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [req.params.id, created_at, type, outcome, notes, next_follow_up, user_id]);
-    
-    res.json({ success: true });
+    try {
+      const { type, outcome, notes, next_follow_up } = req.body;
+      const created_at = new Date().toISOString();
+      const user_id = req.session.userId;
+      
+      await query(`
+        INSERT INTO activity_logs (lead_id, created_at, type, outcome, notes, next_follow_up, user_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `, [req.params.id, created_at, type, outcome, notes, next_follow_up, user_id]);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error creating lead log:", error);
+      res.status(500).json({ error: "Error al crear log del lead" });
+    }
   });
 
   // Settings API
   app.get("/api/settings", async (req, res) => {
-    const settings = await query("SELECT * FROM settings");
-    const config: any = {};
-    settings.forEach((s: any) => config[s.key] = s.value);
-    res.json(config);
+    try {
+      const settings = await query("SELECT * FROM settings");
+      const config: any = {};
+      settings.forEach((s: any) => config[s.key] = s.value);
+      res.json(config);
+    } catch (error) {
+      console.error("Error fetching settings:", error);
+      res.status(500).json({ error: "Error al obtener configuración" });
+    }
   });
 
   app.post("/api/settings", requireAdmin, async (req, res) => {
-    const { whatsapp_number, shipping_fee } = req.body;
-    if (whatsapp_number) await query("UPDATE settings SET value = ? WHERE key = 'whatsapp_number'", [whatsapp_number]);
-    if (shipping_fee) await query("UPDATE settings SET value = ? WHERE key = 'shipping_fee'", [shipping_fee]);
-    res.json({ success: true });
+    try {
+      const { whatsapp_number, shipping_fee } = req.body;
+      if (whatsapp_number) await query("UPDATE settings SET value = ? WHERE key = 'whatsapp_number'", [whatsapp_number]);
+      if (shipping_fee) await query("UPDATE settings SET value = ? WHERE key = 'shipping_fee'", [shipping_fee]);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating settings:", error);
+      res.status(500).json({ error: "Error al actualizar configuración" });
+    }
   });
 
   // Vite middleware for development

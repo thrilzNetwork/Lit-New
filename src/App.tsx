@@ -11,8 +11,6 @@ import { Promos } from './pages/Promos';
 import { About } from './pages/About';
 import { FAQ } from './pages/FAQ';
 import { Contact } from './pages/Contact';
-import { Profile } from './pages/Profile';
-import { Login } from './pages/Login';
 import { CartProvider, useCart } from './context/CartContext';
 import { X, Leaf } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -90,8 +88,6 @@ const AppContent = () => {
           <Route path="/about" element={<About />} />
           <Route path="/faq" element={<FAQ />} />
           <Route path="/contact" element={<Contact />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/login" element={<Login />} />
         </Routes>
       </main>
 

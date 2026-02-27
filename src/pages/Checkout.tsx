@@ -22,6 +22,8 @@ export const Checkout: React.FC = () => {
     notes: ''
   });
   const [leadCreated, setLeadCreated] = useState(false);
+  const [submittedOrder, setSubmittedOrder] = useState<Order | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const cartItems = cart.map(item => {
     const product = products.find(p => p.id === item.productId);
@@ -68,6 +70,7 @@ export const Checkout: React.FC = () => {
   };
 
   const handleSubmit = async () => {
+    setIsSubmitting(true);
     const orderId = generateOrderId();
     const order: Order = {
       id: orderId,
@@ -102,45 +105,82 @@ export const Checkout: React.FC = () => {
       if (res.ok) {
         const result = await res.json();
         const finalId = result.id || orderId;
+        const finalOrder = { ...order, id: finalId };
         
         // 2. Format WhatsApp Message (Receipt Style)
-        const itemsText = order.items.map(i => `- ${i.name} (${i.format}) ${i.qty} x $${i.price.toFixed(2)} = $${i.total.toFixed(2)}`).join('\n');
+        const itemsText = finalOrder.items.map(i => `- ${i.name} (${i.format}) ${i.qty} x $${i.price.toFixed(2)} = $${i.total.toFixed(2)}`).join('\n');
         
         const message = `🧾 NUEVO PEDIDO – LIT
 Pedido: ${finalId}
-Fecha: ${order.date}
-Cliente: ${order.customer_name}
-Teléfono: ${order.customer_phone}
-Email: ${order.customer_email || 'N/A'}
-Entrega: ${order.delivery_method}
-Dirección: ${order.address}
+Fecha: ${finalOrder.date}
+Cliente: ${finalOrder.customer_name}
+Teléfono: ${finalOrder.customer_phone}
+Email: ${finalOrder.customer_email || 'N/A'}
+Entrega: ${finalOrder.delivery_method}
+Dirección: ${finalOrder.address}
 
 ITEMS:
 ${itemsText}
 
-Subtotal: $${order.subtotal.toFixed(2)}
+Subtotal: $${finalOrder.subtotal.toFixed(2)}
 Descuento: $0.00
-Envío: $${order.shipping.toFixed(2)}
+Envío: $${finalOrder.shipping.toFixed(2)}
 Impuestos: $0.00
-TOTAL: $${order.total.toFixed(2)}
+TOTAL: $${finalOrder.total.toFixed(2)}
 
-Notas: ${order.notes || '—'}
+Notas: ${finalOrder.notes || '—'}
 
 Por favor confirmar disponibilidad y método de pago.`;
         
         const whatsappUrl = `https://wa.me/${settings?.whatsapp_number.replace(/\+/g, '')}?text=${encodeURIComponent(message)}`;
         
-        // 3. Clear Cart and Redirect
+        // 3. Clear Cart and Show Confirmation
         clearCart();
+        setSubmittedOrder(finalOrder);
         window.open(whatsappUrl, '_blank');
-        navigate('/');
       }
     } catch (error) {
       alert('Error al procesar el pedido. Por favor intenta de nuevo.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  if (cartItems.length === 0) return null;
+  const copySummary = () => {
+    if (!submittedOrder) return;
+    const itemsText = submittedOrder.items.map(i => `- ${i.name} (${i.format}) ${i.qty} x $${i.price.toFixed(2)} = $${i.total.toFixed(2)}`).join('\n');
+    const summary = `PEDIDO: ${submittedOrder.id}\nTOTAL: $${submittedOrder.total.toFixed(2)}\n\nITEMS:\n${itemsText}`;
+    navigator.clipboard.writeText(summary);
+    alert('Resumen copiado al portapapeles');
+  };
+
+  if (cartItems.length === 0 && !submittedOrder) return null;
+
+  if (submittedOrder) {
+    return (
+      <div className="pt-32 pb-24 bg-lit-pastel min-h-screen flex items-center justify-center px-6">
+        <div className="max-w-md w-full bg-white p-10 shadow-sm text-center">
+          <div className="w-20 h-20 bg-lit-green/20 text-lit-green rounded-full flex items-center justify-center mx-auto mb-8">
+            <MessageCircle size={40} />
+          </div>
+          <h2 className="text-3xl font-bold tracking-tighter mb-4">¡Pedido Recibido!</h2>
+          <p className="text-gray-500 mb-8">
+            Tu pedido <span className="font-bold text-lit-purple">{submittedOrder.id}</span> ha sido registrado. 
+            Se ha abierto WhatsApp para que confirmes tu compra con un asesor.
+          </p>
+          
+          <div className="space-y-4">
+            <button onClick={copySummary} className="w-full btn-secondary py-4 flex items-center justify-center gap-2">
+              <span>Copiar resumen</span>
+            </button>
+            <button onClick={() => navigate('/')} className="w-full btn-primary py-4">
+              Volver al inicio
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pt-32 pb-24 bg-lit-pastel min-h-screen">
@@ -253,9 +293,13 @@ Por favor confirmar disponibilidad y método de pago.`;
 
                   <div className="flex gap-4">
                     <button onClick={() => setStep(1)} className="btn-secondary flex-1">Atrás</button>
-                    <button onClick={handleSubmit} className="btn-primary flex-[2] flex items-center justify-center gap-3 bg-lit-green text-lit-purple">
+                    <button 
+                      disabled={isSubmitting}
+                      onClick={handleSubmit} 
+                      className="btn-primary flex-[2] flex items-center justify-center gap-3 bg-lit-green text-lit-purple disabled:opacity-50"
+                    >
                       <MessageCircle size={20} />
-                      <span>Completar por WhatsApp</span>
+                      <span>{isSubmitting ? 'Procesando...' : 'Completar por WhatsApp'}</span>
                     </button>
                   </div>
                 </div>
