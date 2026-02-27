@@ -2,7 +2,6 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
-import Database from "better-sqlite3";
 // @ts-ignore
 import { sql } from "@vercel/postgres";
 // @ts-ignore
@@ -18,8 +17,19 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Database setup
-const isProd = !!process.env.POSTGRES_URL;
-const sqliteDb = !isProd ? new Database("lit_store.db") : null;
+const usePostgres = !!process.env.POSTGRES_URL || !!process.env.DATABASE_URL;
+if (usePostgres && !process.env.POSTGRES_URL) {
+  process.env.POSTGRES_URL = process.env.DATABASE_URL;
+}
+
+let sqliteDb: any = null;
+const getSqliteDb = async () => {
+  if (usePostgres) return null;
+  if (sqliteDb) return sqliteDb;
+  const Database = (await import("better-sqlite3")).default;
+  sqliteDb = new Database("lit_store.db");
+  return sqliteDb;
+};
 
 // Cloudinary setup
 if (process.env.CLOUDINARY_URL) {
@@ -32,14 +42,15 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 // DB Wrapper for compatibility
 const query = async (text: string, params: any[] = []) => {
-  if (isProd) {
+  if (usePostgres) {
     // Convert SQLite ? to Postgres $1, $2...
     let i = 1;
     const pgText = text.replace(/\?/g, () => `$${i++}`);
     const result = await sql.query(pgText, params);
     return result.rows;
   } else {
-    const stmt = sqliteDb!.prepare(text);
+    const db = await getSqliteDb();
+    const stmt = db.prepare(text);
     if (text.trim().toUpperCase().startsWith("SELECT")) {
       return stmt.all(...params);
     } else {
@@ -60,15 +71,15 @@ const getProducts = async () => {
 };
 
 const exec = async (text: string) => {
-  if (isProd) {
+  if (usePostgres) {
     // Split by semicolon and run each (Postgres doesn't like multiple statements in one query usually)
     const statements = text.split(';').filter(s => s.trim());
     for (const s of statements) {
-      // @ts-ignore
       await sql.query(s);
     }
   } else {
-    sqliteDb!.exec(text);
+    const db = await getSqliteDb();
+    db.exec(text);
   }
 };
 
@@ -96,7 +107,7 @@ const initDb = async () => {
     );
 
     CREATE TABLE IF NOT EXISTS users (
-      id ${isProd ? 'SERIAL' : 'INTEGER'} PRIMARY KEY ${isProd ? '' : 'AUTOINCREMENT'},
+      id ${usePostgres ? 'SERIAL' : 'INTEGER'} PRIMARY KEY ${usePostgres ? '' : 'AUTOINCREMENT'},
       email TEXT UNIQUE,
       password TEXT,
       name TEXT,
@@ -120,7 +131,7 @@ const initDb = async () => {
     );
 
     CREATE TABLE IF NOT EXISTS promos (
-      id ${isProd ? 'SERIAL' : 'INTEGER'} PRIMARY KEY ${isProd ? '' : 'AUTOINCREMENT'},
+      id ${usePostgres ? 'SERIAL' : 'INTEGER'} PRIMARY KEY ${usePostgres ? '' : 'AUTOINCREMENT'},
       title TEXT,
       description TEXT,
       code TEXT,
@@ -141,7 +152,7 @@ const initDb = async () => {
     );
 
     CREATE TABLE IF NOT EXISTS activity_logs (
-      id ${isProd ? 'SERIAL' : 'INTEGER'} PRIMARY KEY ${isProd ? '' : 'AUTOINCREMENT'},
+      id ${usePostgres ? 'SERIAL' : 'INTEGER'} PRIMARY KEY ${usePostgres ? '' : 'AUTOINCREMENT'},
       lead_id TEXT,
       order_id TEXT,
       created_at TEXT,
@@ -279,7 +290,9 @@ const initDb = async () => {
   }
 
   // Initial settings
-  await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ["whatsapp_number", process.env.NEXT_PUBLIC_WHATSAPP_SALES || process.env.WHATSAPP_SALES || "+15557089007"]);
+  await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ["whatsapp_number", process.env.NEXT_PUBLIC_WHATSAPP_SALES || process.env.WHATSAPP_SALES || "+59178299604"]);
+  // Migration: Update if it's the old default
+  await query("UPDATE settings SET value = ? WHERE key = 'whatsapp_number' AND value = '+15557089007'", ["+59178299604"]);
   await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ["currency", process.env.NEXT_PUBLIC_CURRENCY || process.env.CURRENCY || "USD"]);
   await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ["shipping_fee", process.env.NEXT_PUBLIC_SHIPPING_FLAT || process.env.SHIPPING_FLAT || "10"]);
 
@@ -307,16 +320,17 @@ declare module "express-session" {
   }
 }
 
+const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*",
+  }
+});
+
 async function startServer() {
   await initDb();
-  const app = express();
-  const httpServer = createServer(app);
-  const io = new Server(httpServer, {
-    cors: {
-      origin: "*",
-    }
-  });
-
+  
   app.use(express.json());
   app.use(session({
     secret: process.env.SESSION_SECRET || "lit-secret-key",
@@ -330,7 +344,7 @@ async function startServer() {
     }
   }));
 
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   // Auth Middleware
   const requireAuth = (req: any, res: any, next: any) => {
@@ -787,16 +801,20 @@ async function startServer() {
       appType: "spa",
     });
     app.use(vite.middlewares);
-  } else {
+  } else if (!process.env.VERCEL) {
+    // Only serve static files manually if NOT on Vercel
     app.use(express.static(path.join(__dirname, "dist")));
     app.get("*", (req, res) => {
       res.sendFile(path.join(__dirname, "dist", "index.html"));
     });
   }
 
-  httpServer.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  if (!process.env.VERCEL) {
+    httpServer.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  }
 }
 
-startServer();
+const appPromise = startServer();
+export default app;

@@ -1063,7 +1063,7 @@ export const Admin: React.FC = () => {
             <form onSubmit={updateSettings} className="space-y-8">
               <div className="space-y-2">
                 <label className="text-[10px] uppercase tracking-widest font-bold text-gray-400">WhatsApp de Ventas (Formato internacional)</label>
-                <input type="text" name="whatsapp_number" defaultValue={settings?.whatsapp_number} className="input-lit" placeholder="+15557089007" />
+                <input type="text" name="whatsapp_number" defaultValue={settings?.whatsapp_number} className="input-lit" placeholder="+59178299604" />
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] uppercase tracking-widest font-bold text-gray-400">Tarifa de Envío Fija ({settings?.currency})</label>

@@ -159,7 +159,7 @@ export const Home: React.FC = () => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ source: 'home', interest: 'Asesoría desde Home' })
                   });
-                  window.open('https://wa.me/15557089007?text=Hola,%20necesito%20asesoría%20con%20los%20productos%20LIT', '_blank');
+                  window.open('https://wa.me/59178299604?text=Hola,%20necesito%20asesoría%20con%20los%20productos%20LIT', '_blank');
                 }}
                 className="flex items-center gap-4 group"
               >

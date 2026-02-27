@@ -88,7 +88,7 @@ export const Contact: React.FC = () => {
                   </div>
                   <div>
                     <p className="text-[10px] uppercase tracking-widest font-bold text-gray-400">WhatsApp Ventas</p>
-                    <p className="font-bold">+1 555 708 9007</p>
+                    <p className="font-bold">+591 78299604</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
@@ -117,7 +117,7 @@ export const Contact: React.FC = () => {
                 <h3 className="text-2xl font-bold tracking-tighter mb-4">¿Buscas Asesoría Personalizada?</h3>
                 <p className="text-white/70 font-light mb-8">Nuestros expertos en bienestar pueden ayudarte a elegir el suplemento ideal para tus objetivos.</p>
                 <button 
-                  onClick={() => window.open('https://wa.me/15557089007?text=Hola,%20necesito%20asesoría%20personalizada%20con%20LIT', '_blank')}
+                  onClick={() => window.open('https://wa.me/59178299604?text=Hola,%20necesito%20asesoría%20personalizada%20con%20LIT', '_blank')}
                   className="bg-lit-green text-white px-8 py-3 font-bold uppercase tracking-widest text-[10px] hover:bg-white hover:text-lit-purple transition-all"
                 >
                   Hablar con un experto

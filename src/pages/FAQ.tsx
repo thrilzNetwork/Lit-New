@@ -69,7 +69,7 @@ export const FAQ: React.FC = () => {
           <h3 className="text-xl font-bold mb-4">¿Aún tienes dudas?</h3>
           <p className="text-white/70 text-sm font-light mb-8">Nuestro equipo de atención al cliente está listo para ayudarte.</p>
           <button 
-            onClick={() => window.open('https://wa.me/15557089007', '_blank')}
+            onClick={() => window.open('https://wa.me/59178299604', '_blank')}
             className="bg-lit-green text-white px-8 py-3 font-bold uppercase tracking-widest text-[10px] hover:bg-white hover:text-lit-purple transition-all"
           >
             Contactar por WhatsApp
