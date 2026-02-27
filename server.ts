@@ -18,7 +18,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Database setup
-const isProd = process.env.NODE_ENV === "production" || !!process.env.POSTGRES_URL;
+const isProd = !!process.env.POSTGRES_URL;
 const sqliteDb = !isProd ? new Database("lit_store.db") : null;
 
 // Cloudinary setup
@@ -55,7 +55,7 @@ const getOne = async (text: string, params: any[] = []) => {
 };
 
 const getProducts = async () => {
-  const products = await query("SELECT * FROM products");
+  const products = await query("SELECT * FROM products") as any[];
   return products.map((p: any) => ({ ...p, benefits: JSON.parse(p.benefits) }));
 };
 
@@ -64,6 +64,7 @@ const exec = async (text: string) => {
     // Split by semicolon and run each (Postgres doesn't like multiple statements in one query usually)
     const statements = text.split(';').filter(s => s.trim());
     for (const s of statements) {
+      // @ts-ignore
       await sql.query(s);
     }
   } else {
@@ -600,7 +601,7 @@ async function startServer() {
 
   app.get("/api/orders", requireAuth, async (req, res) => {
     try {
-      const orders = await query("SELECT * FROM orders ORDER BY date DESC");
+      const orders = await query("SELECT * FROM orders ORDER BY date DESC") as any[];
       res.json(orders.map(o => ({ ...o, items: JSON.parse(o.items) })));
     } catch (error) {
       console.error("Error fetching orders:", error);
@@ -757,7 +758,7 @@ async function startServer() {
   // Settings API
   app.get("/api/settings", async (req, res) => {
     try {
-      const settings = await query("SELECT * FROM settings");
+      const settings = await query("SELECT * FROM settings") as any[];
       const config: any = {};
       settings.forEach((s: any) => config[s.key] = s.value);
       res.json(config);

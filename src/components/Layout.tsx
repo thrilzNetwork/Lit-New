@@ -7,17 +7,17 @@ interface HeaderProps {
   onMenuToggle: () => void;
 }
 
-export const Logo: React.FC<{ className?: string }> = ({ className = "" }) => (
+export const Logo: React.FC<{ className?: string; light?: boolean }> = ({ className = "", light = false }) => (
   <div className={`flex items-center gap-2 ${className}`}>
     <div className="relative flex items-center">
-      <span className="text-3xl font-serif font-bold tracking-tighter text-lit-purple leading-none">LIT</span>
+      <span className={`text-3xl font-serif font-bold tracking-tighter leading-none ${light ? 'text-white' : 'text-lit-purple'}`}>LIT</span>
       <div className="absolute -top-1 left-1/2 -translate-x-1/2">
         <Leaf className="text-lit-green w-4 h-4 rotate-12" fill="currentColor" />
       </div>
     </div>
-    <div className="hidden sm:block border-l border-lit-purple/20 pl-3">
-      <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-lit-purple/60 leading-tight block">Food and Supplement</span>
-      <span className="text-[10px] uppercase tracking-[0.2em] font-bold text-lit-purple/60 leading-tight block">Processor</span>
+    <div className={`hidden sm:block border-l pl-3 ${light ? 'border-white/20' : 'border-lit-purple/20'}`}>
+      <span className={`text-[10px] uppercase tracking-[0.2em] font-bold leading-tight block ${light ? 'text-white/80' : 'text-lit-purple/60'}`}>Food and Supplement</span>
+      <span className={`text-[10px] uppercase tracking-[0.2em] font-bold leading-tight block ${light ? 'text-white/80' : 'text-lit-purple/60'}`}>Processor</span>
     </div>
   </div>
 );
@@ -43,7 +43,7 @@ export const Header: React.FC<HeaderProps> = ({ cartCount, onMenuToggle }) => {
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-white shadow-sm py-3' : 'bg-transparent py-6'}`}>
       <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
-        <button onClick={onMenuToggle} className="lg:hidden text-lit-purple">
+        <button onClick={onMenuToggle} className={`lg:hidden ${isScrolled ? 'text-lit-purple' : 'text-white'}`}>
           <Menu size={24} />
         </button>
 
@@ -52,7 +52,11 @@ export const Header: React.FC<HeaderProps> = ({ cartCount, onMenuToggle }) => {
             <Link
               key={link.path}
               to={link.path}
-              className={`text-xs uppercase tracking-widest font-medium transition-colors hover:text-lit-green ${location.pathname === link.path ? 'text-lit-green' : 'text-lit-purple'}`}
+              className={`text-[11px] uppercase tracking-[0.2em] font-bold transition-colors hover:text-lit-green ${
+                location.pathname === link.path 
+                  ? 'text-lit-green' 
+                  : isScrolled ? 'text-lit-purple' : 'text-white'
+              }`}
             >
               {link.name}
             </Link>
@@ -60,10 +64,10 @@ export const Header: React.FC<HeaderProps> = ({ cartCount, onMenuToggle }) => {
         </nav>
 
         <Link to="/" className="group transition-transform hover:scale-105">
-          <Logo />
+          <Logo light={!isScrolled} />
         </Link>
 
-        <div className="flex items-center gap-5 text-lit-purple">
+        <div className={`flex items-center gap-5 ${isScrolled ? 'text-lit-purple' : 'text-white'}`}>
           <button className="hidden sm:block hover:text-lit-green transition-colors">
             <Search size={20} />
           </button>

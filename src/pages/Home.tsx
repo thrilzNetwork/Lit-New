@@ -40,11 +40,11 @@ export const Home: React.FC = () => {
             transition={{ duration: 0.8 }}
             className="max-w-2xl"
           >
-            <span className="text-lit-green text-xs font-bold uppercase tracking-[0.4em] mb-6 block">Bienestar + Performance</span>
+            <span className="text-lit-green brightness-125 text-xs font-bold uppercase tracking-[0.4em] mb-6 block">Bienestar + Performance</span>
             <h1 className="text-5xl md:text-7xl lg:text-8xl font-serif font-bold text-white tracking-tighter leading-[0.9] mb-8">
-              TU MEJOR <br /> <span className="text-lit-green italic">VERSIÓN</span> <br /> ES LIT.
+              TU MEJOR <br /> <span className="text-lit-green brightness-125 italic">VERSIÓN</span> <br /> ES LIT.
             </h1>
-            <p className="text-gray-300 text-lg md:text-xl mb-10 font-light max-w-lg leading-relaxed">
+            <p className="text-white/90 text-lg md:text-xl mb-10 font-light max-w-lg leading-relaxed">
               Suplementos premium diseñados en laboratorio para potenciar tu equilibrio mental y rendimiento físico.
             </p>
             <div className="flex flex-wrap gap-4">
@@ -59,16 +59,16 @@ export const Home: React.FC = () => {
         </div>
 
         <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-10 hidden md:flex gap-20">
-          <div className="flex items-center gap-3 text-white/60">
-            <Truck size={20} className="text-lit-green" />
+          <div className="flex items-center gap-3 text-white/80">
+            <Truck size={20} className="text-lit-green brightness-125" />
             <span className="text-[10px] uppercase tracking-widest font-bold">Envío Nacional</span>
           </div>
-          <div className="flex items-center gap-3 text-white/60">
-            <Headphones size={20} className="text-lit-green" />
+          <div className="flex items-center gap-3 text-white/80">
+            <Headphones size={20} className="text-lit-green brightness-125" />
             <span className="text-[10px] uppercase tracking-widest font-bold">Asesoría Humana</span>
           </div>
-          <div className="flex items-center gap-3 text-white/60">
-            <ShieldCheck size={20} className="text-lit-green" />
+          <div className="flex items-center gap-3 text-white/80">
+            <ShieldCheck size={20} className="text-lit-green brightness-125" />
             <span className="text-[10px] uppercase tracking-widest font-bold">Calidad Premium</span>
           </div>
         </div>
@@ -147,7 +147,7 @@ export const Home: React.FC = () => {
             <h2 className="text-4xl md:text-7xl font-serif font-bold tracking-tighter leading-tight mb-8">
               Ingredientes naturales, <br /> <span className="italic text-lit-green">enfoque premium.</span>
             </h2>
-            <p className="text-gray-400 text-lg font-light leading-relaxed mb-10">
+            <p className="text-white/70 text-lg font-light leading-relaxed mb-10">
               En Laboratorios LIT creemos que el bienestar no debe ser complicado. Utilizamos ciencia aplicada e ingredientes de la más alta pureza para crear soluciones que se adaptan a tu ritmo de vida.
             </p>
             <div className="flex flex-col sm:flex-row gap-6">
