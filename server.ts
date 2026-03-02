@@ -322,6 +322,7 @@ declare module "express-session" {
 }
 
 const app = express();
+app.set('trust proxy', 1); // Trust first proxy (Vercel, Nginx, etc.)
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
@@ -354,6 +355,7 @@ app.use(session({
   secret: process.env.SESSION_SECRET || "lit-secret-key",
   resave: false,
   saveUninitialized: false,
+  proxy: true, // Required for secure cookies behind proxy
   cookie: { 
     secure: process.env.NODE_ENV === "production",
     sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax',
@@ -377,7 +379,7 @@ app.use(async (req, res, next) => {
     console.error("Database initialization error:", error);
     res.status(500).json({ 
       error: "Error de conexión con la base de datos", 
-      details: process.env.NODE_ENV === "development" ? error.message : undefined 
+      details: error.message 
     });
   }
 });
@@ -411,30 +413,64 @@ const requireAuth = (req: any, res: any, next: any) => {
   app.post("/api/auth/signup", async (req, res) => {
     const { email, password, name } = req.body;
     try {
+      if (!email || !password || !name) {
+        return res.status(400).json({ error: "Todos los campos son obligatorios" });
+      }
       const hashedPassword = bcrypt.hashSync(password, 10);
-      await query("INSERT INTO users (email, password, name) VALUES (?, ?, ?)", [email, hashedPassword, name]);
-      res.json({ success: true, message: "Registro exitoso. Espera la aprobación del administrador." });
+      
+      // Check if this is the first user
+      const userCountRes = await getOne("SELECT COUNT(*) as count FROM users");
+      const isFirstUser = Number(userCountRes.count) === 0;
+      
+      await query("INSERT INTO users (email, password, name, role, status) VALUES (?, ?, ?, ?, ?)", [
+        email, 
+        hashedPassword, 
+        name, 
+        isFirstUser ? 'admin' : 'sales',
+        isFirstUser ? 'approved' : 'pending'
+      ]);
+      
+      res.json({ 
+        success: true, 
+        message: isFirstUser 
+          ? "Registro exitoso como administrador. Ya puedes iniciar sesión." 
+          : "Registro exitoso. Espera la aprobación del administrador." 
+      });
     } catch (error) {
-      res.status(400).json({ error: "El email ya está registrado" });
+      console.error("Signup error:", error);
+      res.status(400).json({ error: "El email ya está registrado o hubo un error en el registro" });
     }
   });
 
   app.post("/api/auth/login", async (req, res) => {
-    const { email, password } = req.body;
-    const user: any = await getOne("SELECT * FROM users WHERE email = ?", [email]);
-    
-    if (!user || !bcrypt.compareSync(password, user.password)) {
-      return res.status(401).json({ error: "Credenciales inválidas" });
-    }
+    try {
+      const { email, password } = req.body;
+      if (!email || !password) {
+        return res.status(400).json({ error: "Email y contraseña son requeridos" });
+      }
+      
+      const user: any = await getOne("SELECT * FROM users WHERE email = ?", [email]);
+      
+      if (!user || !bcrypt.compareSync(password, user.password)) {
+        return res.status(401).json({ error: "Credenciales inválidas" });
+      }
 
-    if (user.status !== 'approved') {
-      return res.status(403).json({ error: "Tu cuenta está pendiente de aprobación" });
-    }
+      if (user.status !== 'approved') {
+        return res.status(403).json({ error: "Tu cuenta está pendiente de aprobación" });
+      }
 
-    req.session.userId = user.id;
-    req.session.userRole = user.role;
-    req.session.userName = user.name;
-    res.json({ id: user.id, email: user.email, name: user.name, role: user.role });
+      if (!req.session) {
+        throw new Error("La sesión no está inicializada correctamente");
+      }
+
+      req.session.userId = user.id;
+      req.session.userRole = user.role;
+      req.session.userName = user.name;
+      res.json({ id: user.id, email: user.email, name: user.name, role: user.role });
+    } catch (error: any) {
+      console.error("Login error:", error);
+      res.status(500).json({ error: "Error interno del servidor", details: error.message });
+    }
   });
 
   app.get("/api/auth/me", (req: any, res) => {
