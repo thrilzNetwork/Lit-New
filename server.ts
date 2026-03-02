@@ -166,6 +166,20 @@ const initDb = async () => {
   
   await exec(schema);
 
+  // Migration: Ensure users table has role and status columns
+  try {
+    if (usePostgres) {
+      await query("ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'sales'");
+      await query("ALTER TABLE users ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending'");
+    } else {
+      // SQLite doesn't support ADD COLUMN IF NOT EXISTS easily, but we can try and catch
+      try { await query("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'sales'"); } catch (e) {}
+      try { await query("ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'pending'"); } catch (e) {}
+    }
+  } catch (err) {
+    console.log("Migration notice (users table):", err);
+  }
+
   // Seed Products if empty
   const countRes = await getOne("SELECT COUNT(*) as count FROM products");
   if (Number(countRes.count) === 0) {
@@ -436,9 +450,15 @@ const requireAuth = (req: any, res: any, next: any) => {
           ? "Registro exitoso como administrador. Ya puedes iniciar sesión." 
           : "Registro exitoso. Espera la aprobación del administrador." 
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Signup error:", error);
-      res.status(400).json({ error: "El email ya está registrado o hubo un error en el registro" });
+      if (error.message?.includes("unique constraint") || error.message?.includes("UNIQUE constraint")) {
+        return res.status(400).json({ error: "El email ya está registrado" });
+      }
+      res.status(500).json({ 
+        error: "Error interno en el registro", 
+        details: error.message 
+      });
     }
   });
 
