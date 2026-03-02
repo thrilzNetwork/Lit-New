@@ -17,17 +17,13 @@ export const Home: React.FC = () => {
   const mouseXSpring = useSpring(x);
   const mouseYSpring = useSpring(y);
 
-  const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ["17.5deg", "-17.5deg"]);
-  const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ["-17.5deg", "17.5deg"]);
+  const rotateX = useTransform(mouseYSpring, [-0.5, 0.5], ["10deg", "-10deg"]);
+  const rotateY = useTransform(mouseXSpring, [-0.5, 0.5], ["-10deg", "10deg"]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    const width = rect.width;
-    const height = rect.height;
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-    const xPct = mouseX / width - 0.5;
-    const yPct = mouseY / height - 0.5;
+    const xPct = (e.clientX - rect.left) / rect.width - 0.5;
+    const yPct = (e.clientY - rect.top) / rect.height - 0.5;
     x.set(xPct);
     y.set(yPct);
   };
@@ -57,7 +53,7 @@ export const Home: React.FC = () => {
       <section className="relative h-screen flex items-center overflow-hidden bg-white">
         <div className="absolute inset-0 z-0">
           <img 
-            src="https://picsum.photos/seed/wellness/1920/1080?grayscale" 
+            src={settings?.hero_image || "https://picsum.photos/seed/wellness/1920/1080?grayscale"} 
             alt="Wellness Hero" 
             className="w-full h-full object-cover opacity-10 scale-105"
             referrerPolicy="no-referrer"
@@ -71,12 +67,24 @@ export const Home: React.FC = () => {
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <span className="text-lit-green text-xs font-bold uppercase tracking-[0.4em] mb-6 block">Bienestar + Performance</span>
-            <h1 className="text-5xl md:text-7xl lg:text-8xl font-serif font-bold text-lit-purple tracking-tighter leading-[0.9] mb-8">
-              TU MEJOR <br /> <span className="text-lit-green italic">VERSIÓN</span> <br /> ES LIT.
+            <span className="text-lit-green text-xs font-bold uppercase tracking-[0.4em] mb-6 block">
+              {settings?.hero_badge || "Bienestar + Performance"}
+            </span>
+            <h1 className="text-5xl md:text-7xl lg:text-8xl font-serif font-bold text-lit-purple tracking-tighter leading-[0.9] mb-8 uppercase">
+              {settings?.hero_title ? (
+                settings.hero_title.split(' ').map((word: string, i: number) => (
+                  <React.Fragment key={i}>
+                    {word === 'VERSIÓN' ? <span className="text-lit-green italic">{word}</span> : word}
+                    {' '}
+                    {i === 1 && <br />}
+                  </React.Fragment>
+                ))
+              ) : (
+                <>TU MEJOR <br /> <span className="text-lit-green italic">VERSIÓN</span> <br /> ES LIT.</>
+              )}
             </h1>
             <p className="text-lit-purple/70 text-lg md:text-xl mb-10 font-light max-w-lg leading-relaxed">
-              Suplementos premium diseñados en laboratorio para potenciar tu equilibrio mental y rendimiento físico.
+              {settings?.hero_subtitle || "Suplementos premium diseñados en laboratorio para potenciar tu equilibrio mental y rendimiento físico."}
             </p>
             <div className="flex flex-wrap gap-4">
               <Link to="/shop" className="btn-primary bg-lit-purple text-white hover:bg-lit-green px-10 py-4">

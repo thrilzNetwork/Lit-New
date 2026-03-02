@@ -3,7 +3,8 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 // @ts-ignore
-import { db } from "@vercel/postgres";
+import pg from "pg";
+const { Pool } = pg;
 // @ts-ignore
 import { v2 as cloudinary } from "cloudinary";
 // @ts-ignore
@@ -17,9 +18,15 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Database setup
-const usePostgres = !!process.env.POSTGRES_URL || !!process.env.DATABASE_URL;
-if (usePostgres && !process.env.POSTGRES_URL) {
-  process.env.POSTGRES_URL = process.env.DATABASE_URL;
+const usePostgres = !!process.env.POSTGRES_URL || !!process.env.DATABASE_URL || !!process.env.POSTGRES_URL_NON_POOLING;
+const postgresUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL || process.env.POSTGRES_URL_NON_POOLING;
+
+let pool: any = null;
+if (usePostgres) {
+  pool = new Pool({
+    connectionString: postgresUrl,
+    ssl: postgresUrl?.includes("localhost") ? false : { rejectUnauthorized: false }
+  });
 }
 
 let sqliteDb: any = null;
@@ -42,21 +49,29 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 // DB Wrapper for compatibility
 const query = async (text: string, params: any[] = []) => {
-  if (usePostgres) {
-    // Convert SQLite ? to Postgres $1, $2...
-    let i = 1;
-    const pgText = text.replace(/\?/g, () => `$${i++}`);
-    const result = await db.query(pgText, params);
-    return result.rows;
-  } else {
-    const db = await getSqliteDb();
-    const stmt = db.prepare(text);
-    if (text.trim().toUpperCase().startsWith("SELECT")) {
-      return stmt.all(...params);
+  try {
+    if (usePostgres) {
+      if (!pool) {
+        throw new Error("La conexión a Postgres no está inicializada.");
+      }
+      // Convert SQLite ? to Postgres $1, $2...
+      let i = 1;
+      const pgText = text.replace(/\?/g, () => `$${i++}`);
+      const result = await pool.query(pgText, params);
+      return result.rows;
     } else {
-      const info = stmt.run(...params);
-      return info;
+      const db = await getSqliteDb();
+      const stmt = db.prepare(text);
+      if (text.trim().toUpperCase().startsWith("SELECT")) {
+        return stmt.all(...params);
+      } else {
+        const info = stmt.run(...params);
+        return info;
+      }
     }
+  } catch (error: any) {
+    console.error(`Database Query Error [${text}]:`, error.message);
+    throw error;
   }
 };
 
@@ -71,15 +86,23 @@ const getProducts = async () => {
 };
 
 const exec = async (text: string) => {
-  if (usePostgres) {
-    // Split by semicolon and run each (Postgres doesn't like multiple statements in one query usually)
-    const statements = text.split(';').filter(s => s.trim());
-    for (const s of statements) {
-      await db.query(s);
+  try {
+    if (usePostgres) {
+      if (!pool) {
+        throw new Error("La conexión a Postgres no está inicializada.");
+      }
+      // Split by semicolon and run each
+      const statements = text.split(';').filter(s => s.trim());
+      for (const s of statements) {
+        await pool.query(s);
+      }
+    } else {
+      const db = await getSqliteDb();
+      db.exec(text);
     }
-  } else {
-    const db = await getSqliteDb();
-    db.exec(text);
+  } catch (error: any) {
+    console.error("Database Exec Error:", error.message);
+    throw error;
   }
 };
 
@@ -168,16 +191,26 @@ const initDb = async () => {
 
   // Migration: Ensure users table has role and status columns
   try {
-    if (usePostgres) {
-      await query("ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'sales'");
-      await query("ALTER TABLE users ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pending'");
-    } else {
-      // SQLite doesn't support ADD COLUMN IF NOT EXISTS easily, but we can try and catch
-      try { await query("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'sales'"); } catch (e) {}
-      try { await query("ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'pending'"); } catch (e) {}
+    const columns = await query(usePostgres 
+      ? "SELECT column_name FROM information_schema.columns WHERE table_name = 'users'" 
+      : "PRAGMA table_info(users)");
+    
+    const hasRole = columns.some((c: any) => (c.column_name || c.name) === 'role');
+    const hasStatus = columns.some((c: any) => (c.column_name || c.name) === 'status');
+
+    if (!hasRole || !hasStatus) {
+      console.log("Running migrations for users table...");
+      if (usePostgres) {
+        if (!hasRole) await query("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'sales'");
+        if (!hasStatus) await query("ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'pending'");
+      } else {
+        if (!hasRole) await query("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'sales'");
+        if (!hasStatus) await query("ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'pending'");
+      }
+      console.log("Migrations completed.");
     }
-  } catch (err) {
-    console.log("Migration notice (users table):", err);
+  } catch (err: any) {
+    console.warn("Migration notice (users table):", err.message);
   }
 
   // Seed Products if empty
@@ -310,6 +343,9 @@ const initDb = async () => {
   await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ["currency", process.env.NEXT_PUBLIC_CURRENCY || process.env.CURRENCY || "USD"]);
   await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ["shipping_fee", process.env.NEXT_PUBLIC_SHIPPING_FLAT || process.env.SHIPPING_FLAT || "10"]);
   await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ["hero_image", "https://picsum.photos/seed/wellness/1920/1080?grayscale"]);
+  await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ["hero_title", "TU MEJOR VERSIÓN ES LIT."]);
+  await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ["hero_subtitle", "Suplementos premium diseñados en laboratorio para potenciar tu equilibrio mental y rendimiento físico."]);
+  await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ["hero_badge", "Bienestar + Performance"]);
 
   // Create default admin if not exists
   const adminEmail = process.env.ADMIN_USER || "admin@lit.com";
@@ -430,6 +466,21 @@ const requireAuth = (req: any, res: any, next: any) => {
       if (!email || !password || !name) {
         return res.status(400).json({ error: "Todos los campos son obligatorios" });
       }
+
+      // Check for DB connection
+      if (usePostgres && !process.env.POSTGRES_URL && !process.env.DATABASE_URL) {
+        return res.status(400).json({ 
+          error: "Base de datos no conectada", 
+          details: "Por favor, conecta una base de datos Postgres en el dashboard de Vercel para habilitar el registro." 
+        });
+      }
+
+      // Ensure DB is initialized before signup
+      if (!dbInitialized) {
+        await initDb();
+        dbInitialized = true;
+      }
+
       const hashedPassword = bcrypt.hashSync(password, 10);
       
       // Check if this is the first user
@@ -452,11 +503,11 @@ const requireAuth = (req: any, res: any, next: any) => {
       });
     } catch (error: any) {
       console.error("Signup error:", error);
-      if (error.message?.includes("unique constraint") || error.message?.includes("UNIQUE constraint")) {
+      if (error.message?.includes("unique constraint") || error.message?.includes("UNIQUE constraint") || error.message?.includes("already exists")) {
         return res.status(400).json({ error: "El email ya está registrado" });
       }
       res.status(500).json({ 
-        error: "Error interno en el registro", 
+        error: "Error en el registro", 
         details: error.message 
       });
     }
@@ -467,6 +518,14 @@ const requireAuth = (req: any, res: any, next: any) => {
       const { email, password } = req.body;
       if (!email || !password) {
         return res.status(400).json({ error: "Email y contraseña son requeridos" });
+      }
+
+      // Check for DB connection
+      if (usePostgres && !process.env.POSTGRES_URL && !process.env.DATABASE_URL) {
+        return res.status(400).json({ 
+          error: "Base de datos no conectada", 
+          details: "Por favor, conecta una base de datos Postgres en el dashboard de Vercel para habilitar el login." 
+        });
       }
       
       const user: any = await getOne("SELECT * FROM users WHERE email = ?", [email]);
@@ -878,10 +937,13 @@ const requireAuth = (req: any, res: any, next: any) => {
 
   app.post("/api/settings", requireAdmin, async (req, res) => {
     try {
-      const { whatsapp_number, shipping_fee, hero_image } = req.body;
-      if (whatsapp_number) await query("UPDATE settings SET value = ? WHERE key = 'whatsapp_number'", [whatsapp_number]);
-      if (shipping_fee) await query("UPDATE settings SET value = ? WHERE key = 'shipping_fee'", [shipping_fee]);
-      if (hero_image) await query("UPDATE settings SET value = ? WHERE key = 'hero_image'", [hero_image]);
+      const { whatsapp_number, shipping_fee, hero_image, hero_title, hero_subtitle, hero_badge } = req.body;
+      if (whatsapp_number !== undefined) await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", ['whatsapp_number', whatsapp_number]);
+      if (shipping_fee !== undefined) await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", ['shipping_fee', shipping_fee]);
+      if (hero_image !== undefined) await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", ['hero_image', hero_image]);
+      if (hero_title !== undefined) await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", ['hero_title', hero_title]);
+      if (hero_subtitle !== undefined) await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", ['hero_subtitle', hero_subtitle]);
+      if (hero_badge !== undefined) await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", ['hero_badge', hero_badge]);
       res.json({ success: true });
     } catch (error) {
       console.error("Error updating settings:", error);

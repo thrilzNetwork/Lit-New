@@ -263,7 +263,10 @@ export const Admin: React.FC = () => {
     const data = {
       whatsapp_number: formData.get('whatsapp_number'),
       shipping_fee: formData.get('shipping_fee'),
-      hero_image: formData.get('hero_image')
+      hero_image: formData.get('hero_image'),
+      hero_title: formData.get('hero_title'),
+      hero_subtitle: formData.get('hero_subtitle'),
+      hero_badge: formData.get('hero_badge')
     };
     const res = await fetch('/api/settings', {
       method: 'POST',
@@ -376,9 +379,13 @@ export const Admin: React.FC = () => {
                 try {
                   const res = await fetch('/api/health');
                   const data = await res.json();
-                  alert(`Conexión OK: ${data.database} (${data.env})`);
+                  if (data.dbStatus === 'connected') {
+                    alert(`Conexión OK: Base de datos ${data.database} conectada correctamente.`);
+                  } else {
+                    alert(`Error en Base de Datos: ${data.dbStatus}\n\nVerifica que hayas configurado POSTGRES_URL en Vercel.`);
+                  }
                 } catch (err) {
-                  alert('Error de conexión con el servidor');
+                  alert('Error de conexión con el servidor. El backend podría estar caído.');
                 }
               }}
               className="w-full py-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-lit-purple transition-colors"
@@ -1099,6 +1106,18 @@ export const Admin: React.FC = () => {
                     <img src={settings.hero_image} alt="Hero Promo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   </div>
                 )}
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase tracking-widest font-bold text-gray-400">Título Hero</label>
+                <input type="text" name="hero_title" defaultValue={settings?.hero_title} className="input-lit" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase tracking-widest font-bold text-gray-400">Subtítulo Hero</label>
+                <textarea name="hero_subtitle" defaultValue={settings?.hero_subtitle} className="input-lit h-24 resize-none" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase tracking-widest font-bold text-gray-400">Badge Hero (Texto pequeño arriba)</label>
+                <input type="text" name="hero_badge" defaultValue={settings?.hero_badge} className="input-lit" />
               </div>
               <button type="submit" className="btn-primary w-full">Guardar Cambios</button>
             </form>
