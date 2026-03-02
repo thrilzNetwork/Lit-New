@@ -7,17 +7,17 @@ interface HeaderProps {
   onMenuToggle: () => void;
 }
 
-export const Logo: React.FC<{ className?: string; light?: boolean }> = ({ className = "", light = false }) => (
+export const Logo: React.FC<{ className?: string }> = ({ className = "" }) => (
   <div className={`flex items-center gap-2 ${className}`}>
     <div className="relative flex items-center">
-      <span className={`text-3xl font-serif font-bold tracking-tighter leading-none ${light ? 'text-white' : 'text-lit-purple'}`}>LIT</span>
+      <span className="text-3xl font-serif font-bold tracking-tighter leading-none text-lit-purple">LIT</span>
       <div className="absolute -top-1 left-1/2 -translate-x-1/2">
         <Leaf className="text-lit-green w-4 h-4 rotate-12" fill="currentColor" />
       </div>
     </div>
-    <div className={`hidden sm:block border-l pl-3 ${light ? 'border-white/20' : 'border-lit-purple/20'}`}>
-      <span className={`text-[10px] uppercase tracking-[0.2em] font-bold leading-tight block ${light ? 'text-white/80' : 'text-lit-purple/60'}`}>Food and Supplement</span>
-      <span className={`text-[10px] uppercase tracking-[0.2em] font-bold leading-tight block ${light ? 'text-white/80' : 'text-lit-purple/60'}`}>Processor</span>
+    <div className="hidden sm:block border-l pl-3 border-lit-purple/20">
+      <span className="text-[10px] uppercase tracking-[0.2em] font-bold leading-tight block text-lit-purple/60">Food and Supplement</span>
+      <span className="text-[10px] uppercase tracking-[0.2em] font-bold leading-tight block text-lit-purple/60">Processor</span>
     </div>
   </div>
 );
@@ -41,9 +41,9 @@ export const Header: React.FC<HeaderProps> = ({ cartCount, onMenuToggle }) => {
   ];
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-white shadow-sm py-3' : 'bg-transparent py-6'}`}>
+    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-white/95 backdrop-blur-md shadow-sm py-3' : 'bg-white py-6'}`}>
       <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
-        <button onClick={onMenuToggle} className={`lg:hidden ${isScrolled ? 'text-lit-purple' : 'text-white'}`}>
+        <button onClick={onMenuToggle} className="lg:hidden text-lit-purple">
           <Menu size={24} />
         </button>
 
@@ -55,7 +55,7 @@ export const Header: React.FC<HeaderProps> = ({ cartCount, onMenuToggle }) => {
               className={`text-[11px] uppercase tracking-[0.2em] font-bold transition-colors hover:text-lit-green ${
                 location.pathname === link.path 
                   ? 'text-lit-green' 
-                  : isScrolled ? 'text-lit-purple' : 'text-white'
+                  : 'text-lit-purple'
               }`}
             >
               {link.name}
@@ -64,10 +64,10 @@ export const Header: React.FC<HeaderProps> = ({ cartCount, onMenuToggle }) => {
         </nav>
 
         <Link to="/" className="group transition-transform hover:scale-105">
-          <Logo light={!isScrolled} />
+          <Logo />
         </Link>
 
-        <div className={`flex items-center gap-5 ${isScrolled ? 'text-lit-purple' : 'text-white'}`}>
+        <div className="flex items-center gap-5 text-lit-purple">
           <button className="hidden sm:block hover:text-lit-green transition-colors">
             <Search size={20} />
           </button>
@@ -90,13 +90,13 @@ export const Header: React.FC<HeaderProps> = ({ cartCount, onMenuToggle }) => {
 
 export const Footer: React.FC = () => {
   return (
-    <footer className="bg-lit-cream pt-20 pb-10 border-t border-lit-pastel">
+    <footer className="bg-white pt-20 pb-10 border-t border-gray-100">
       <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
         <div className="space-y-6">
           <Link to="/" className="group inline-block">
             <Logo />
           </Link>
-          <p className="text-sm text-gray-500 leading-relaxed">
+          <p className="text-sm text-lit-purple/50 leading-relaxed">
             Laboratorios LIT redefine el bienestar premium con suplementos diseñados para potenciar tu rendimiento y equilibrio diario.
           </p>
           <div className="flex gap-4">
@@ -110,7 +110,7 @@ export const Footer: React.FC = () => {
 
         <div>
           <h4 className="text-xs uppercase tracking-[0.2em] font-bold mb-8">Navegación</h4>
-          <ul className="space-y-4 text-sm text-gray-500">
+          <ul className="space-y-4 text-sm text-lit-purple/50">
             <li><Link to="/shop" className="hover:text-lit-purple transition-colors">Tienda Completa</Link></li>
             <li><Link to="/promos" className="hover:text-lit-purple transition-colors">Promociones</Link></li>
             <li><Link to="/about" className="hover:text-lit-purple transition-colors">Nuestra Historia</Link></li>
@@ -121,7 +121,7 @@ export const Footer: React.FC = () => {
 
         <div>
           <h4 className="text-xs uppercase tracking-[0.2em] font-bold mb-8">Políticas</h4>
-          <ul className="space-y-4 text-sm text-gray-500">
+          <ul className="space-y-4 text-sm text-lit-purple/50">
             <li><Link to="/policies/shipping" className="hover:text-lit-purple transition-colors">Envíos y Entregas</Link></li>
             <li><Link to="/policies/returns" className="hover:text-lit-purple transition-colors">Devoluciones</Link></li>
             <li><Link to="/policies/privacy" className="hover:text-lit-purple transition-colors">Privacidad</Link></li>
@@ -131,16 +131,16 @@ export const Footer: React.FC = () => {
 
         <div>
           <h4 className="text-xs uppercase tracking-[0.2em] font-bold mb-8">Newsletter</h4>
-          <p className="text-sm text-gray-500 mb-6">Suscríbete para recibir tips de bienestar y ofertas exclusivas.</p>
+          <p className="text-sm text-lit-purple/50 mb-6">Suscríbete para recibir tips de bienestar y ofertas exclusivas.</p>
           <div className="flex">
             <input type="email" placeholder="Tu email" className="bg-white border border-gray-200 px-4 py-3 text-sm focus:outline-none w-full" />
             <button className="bg-lit-purple text-white px-4 py-3 text-xs uppercase font-bold tracking-widest">OK</button>
           </div>
         </div>
       </div>
-      <div className="max-w-7xl mx-auto px-6 mt-20 pt-8 border-t border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4">
-        <p className="text-[10px] text-gray-400 uppercase tracking-widest">© 2024 Laboratorios LIT. Todos los derechos reservados.</p>
-        <div className="flex gap-6 text-[10px] text-gray-400 uppercase tracking-widest">
+      <div className="max-w-7xl mx-auto px-6 mt-20 pt-8 border-t border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
+        <p className="text-[10px] text-lit-purple/40 uppercase tracking-widest">© 2024 Laboratorios LIT. Todos los derechos reservados.</p>
+        <div className="flex gap-6 text-[10px] text-lit-purple/40 uppercase tracking-widest">
           <span>Horario: Lun-Vie 9:00 - 18:00</span>
           <span>Métodos de entrega: Nacional & Local</span>
         </div>

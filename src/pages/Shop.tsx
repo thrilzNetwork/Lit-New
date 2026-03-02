@@ -44,11 +44,11 @@ export const Shop: React.FC = () => {
   const categories = ['Todos', 'Bienestar femenino', 'Mente y enfoque', 'Relajación y equilibrio', 'Detox y digestión', 'Definición', 'Salud ósea y articulaciones', 'Antioxidantes y longevidad'];
 
   return (
-    <div className="pt-32 pb-24">
+    <div className="pt-32 pb-24 bg-white min-h-screen">
       <div className="max-w-7xl mx-auto px-6">
         <div className="mb-16">
           <h1 className="text-4xl md:text-7xl font-serif font-bold tracking-tighter mb-4">Tienda Completa</h1>
-          <p className="text-gray-500 font-light max-w-2xl leading-relaxed">Explora nuestra gama de suplementos premium diseñados en laboratorio para potenciar tu rendimiento físico y equilibrio mental.</p>
+          <p className="text-lit-purple/50 font-light max-w-2xl leading-relaxed">Explora nuestra gama de suplementos premium diseñados en laboratorio para potenciar tu rendimiento físico y equilibrio mental.</p>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-12">

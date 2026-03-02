@@ -3,7 +3,7 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 // @ts-ignore
-import { sql } from "@vercel/postgres";
+import { db } from "@vercel/postgres";
 // @ts-ignore
 import { v2 as cloudinary } from "cloudinary";
 // @ts-ignore
@@ -46,7 +46,7 @@ const query = async (text: string, params: any[] = []) => {
     // Convert SQLite ? to Postgres $1, $2...
     let i = 1;
     const pgText = text.replace(/\?/g, () => `$${i++}`);
-    const result = await sql.query(pgText, params);
+    const result = await db.query(pgText, params);
     return result.rows;
   } else {
     const db = await getSqliteDb();
@@ -75,7 +75,7 @@ const exec = async (text: string) => {
     // Split by semicolon and run each (Postgres doesn't like multiple statements in one query usually)
     const statements = text.split(';').filter(s => s.trim());
     for (const s of statements) {
-      await sql.query(s);
+      await db.query(s);
     }
   } else {
     const db = await getSqliteDb();
@@ -295,6 +295,7 @@ const initDb = async () => {
   await query("UPDATE settings SET value = ? WHERE key = 'whatsapp_number' AND value = '+15557089007'", ["+59178299604"]);
   await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ["currency", process.env.NEXT_PUBLIC_CURRENCY || process.env.CURRENCY || "USD"]);
   await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ["shipping_fee", process.env.NEXT_PUBLIC_SHIPPING_FLAT || process.env.SHIPPING_FLAT || "10"]);
+  await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ["hero_image", "https://picsum.photos/seed/wellness/1920/1080?grayscale"]);
 
   // Create default admin if not exists
   const adminEmail = process.env.ADMIN_USER || "admin@lit.com";
@@ -328,26 +329,63 @@ const io = new Server(httpServer, {
   }
 });
 
-async function startServer() {
-  await initDb();
+// Health check
+app.get("/api/health", async (req, res) => {
+  let dbStatus = "unknown";
+  try {
+    await query("SELECT 1");
+    dbStatus = "connected";
+  } catch (err: any) {
+    dbStatus = `error: ${err.message}`;
+  }
   
-  app.use(express.json());
-  app.use(session({
-    secret: process.env.SESSION_SECRET || "lit-secret-key",
-    resave: false,
-    saveUninitialized: false,
-    cookie: { 
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax',
-      httpOnly: true,
-      maxAge: 1000 * 60 * 60 * 24 // 24 hours
+  res.json({ 
+    status: "ok", 
+    database: usePostgres ? "postgres" : "sqlite",
+    dbStatus,
+    env: process.env.NODE_ENV,
+    vercel: !!process.env.VERCEL
+  });
+});
+
+// Middleware
+app.use(express.json());
+app.use(session({
+  secret: process.env.SESSION_SECRET || "lit-secret-key",
+  resave: false,
+  saveUninitialized: false,
+  cookie: { 
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax',
+    httpOnly: true,
+    maxAge: 1000 * 60 * 60 * 24 // 24 hours
+  }
+}));
+
+// DB Initialization Middleware
+let dbInitialized = false;
+app.use(async (req, res, next) => {
+  try {
+    if (!dbInitialized) {
+      console.log("Initializing database... Mode:", usePostgres ? "Postgres" : "SQLite");
+      await initDb();
+      dbInitialized = true;
+      console.log("Database initialized successfully.");
     }
-  }));
+    next();
+  } catch (error: any) {
+    console.error("Database initialization error:", error);
+    res.status(500).json({ 
+      error: "Error de conexión con la base de datos", 
+      details: process.env.NODE_ENV === "development" ? error.message : undefined 
+    });
+  }
+});
 
-  const PORT = Number(process.env.PORT) || 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
-  // Auth Middleware
-  const requireAuth = (req: any, res: any, next: any) => {
+// Auth Middleware
+const requireAuth = (req: any, res: any, next: any) => {
     if (!req.session.userId) {
       return res.status(401).json({ error: "No autorizado" });
     }
@@ -784,9 +822,10 @@ async function startServer() {
 
   app.post("/api/settings", requireAdmin, async (req, res) => {
     try {
-      const { whatsapp_number, shipping_fee } = req.body;
+      const { whatsapp_number, shipping_fee, hero_image } = req.body;
       if (whatsapp_number) await query("UPDATE settings SET value = ? WHERE key = 'whatsapp_number'", [whatsapp_number]);
       if (shipping_fee) await query("UPDATE settings SET value = ? WHERE key = 'shipping_fee'", [shipping_fee]);
+      if (hero_image) await query("UPDATE settings SET value = ? WHERE key = 'hero_image'", [hero_image]);
       res.json({ success: true });
     } catch (error) {
       console.error("Error updating settings:", error);
@@ -794,27 +833,27 @@ async function startServer() {
     }
   });
 
-  // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else if (!process.env.VERCEL) {
-    // Only serve static files manually if NOT on Vercel
-    app.use(express.static(path.join(__dirname, "dist")));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(__dirname, "dist", "index.html"));
-    });
-  }
-
   if (!process.env.VERCEL) {
-    httpServer.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running on http://localhost:${PORT}`);
-    });
-  }
-}
+    (async () => {
+      // Vite middleware for development
+      if (process.env.NODE_ENV !== "production") {
+        const vite = await createViteServer({
+          server: { middlewareMode: true },
+          appType: "spa",
+        });
+        app.use(vite.middlewares);
+      } else {
+        // Only serve static files manually if NOT on Vercel
+        app.use(express.static(path.join(__dirname, "dist")));
+        app.get("*", (req, res) => {
+          res.sendFile(path.join(__dirname, "dist", "index.html"));
+        });
+      }
 
-const appPromise = startServer();
+      httpServer.listen(PORT, "0.0.0.0", () => {
+        console.log(`Server running on http://localhost:${PORT}`);
+      });
+    })();
+  }
+
 export default app;

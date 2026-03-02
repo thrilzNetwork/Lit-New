@@ -24,12 +24,12 @@ export const Contact: React.FC = () => {
   };
 
   return (
-    <div className="pt-32 pb-24 bg-gray-50 min-h-screen">
+    <div className="pt-32 pb-24 bg-white min-h-screen">
       <div className="max-w-7xl mx-auto px-6">
         <div className="text-center mb-16">
           <span className="text-[10px] uppercase tracking-[0.4em] text-lit-purple font-bold mb-4 block">Contacto</span>
           <h1 className="text-5xl md:text-8xl font-serif font-bold tracking-tighter mb-6 leading-none">Estamos para <span className="text-lit-green italic">ayudarte</span></h1>
-          <p className="text-gray-500 max-w-2xl mx-auto font-light text-lg">¿Tienes dudas sobre qué producto elegir o necesitas asesoría personalizada? Escríbenos.</p>
+          <p className="text-lit-purple/50 max-w-2xl mx-auto font-light text-lg">¿Tienes dudas sobre qué producto elegir o necesitas asesoría personalizada? Escríbenos.</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
@@ -44,7 +44,7 @@ export const Contact: React.FC = () => {
                   <Send size={32} />
                 </div>
                 <h2 className="text-2xl font-bold mb-4">¡Mensaje enviado!</h2>
-                <p className="text-gray-500 font-light">Un asesor se pondrá en contacto contigo a la brevedad.</p>
+                <p className="text-lit-purple/50 font-light">Un asesor se pondrá en contacto contigo a la brevedad.</p>
                 <button onClick={() => setSent(false)} className="mt-8 text-xs font-bold uppercase tracking-widest text-lit-purple hover:underline">Enviar otro mensaje</button>
               </div>
             ) : (

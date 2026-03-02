@@ -29,12 +29,12 @@ export const FAQ: React.FC = () => {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   return (
-    <div className="pt-32 pb-24 bg-gray-50 min-h-screen">
+    <div className="pt-32 pb-24 bg-white min-h-screen">
       <div className="max-w-3xl mx-auto px-6">
         <div className="text-center mb-16">
-          <HelpCircle size={48} className="mx-auto mb-6 text-lit-purple opacity-20" />
+          <HelpCircle size={48} className="mx-auto mb-6 text-lit-purple opacity-10" />
           <h1 className="text-5xl font-serif font-bold tracking-tighter mb-4">Preguntas Frecuentes</h1>
-          <p className="text-gray-500 font-light">Todo lo que necesitas saber sobre Laboratorios LIT.</p>
+          <p className="text-lit-purple/50 font-light">Todo lo que necesitas saber sobre Laboratorios LIT.</p>
         </div>
 
         <div className="space-y-4">
@@ -42,7 +42,7 @@ export const FAQ: React.FC = () => {
             <div key={i} className="bg-white border border-gray-100 overflow-hidden">
               <button 
                 onClick={() => setOpenIndex(openIndex === i ? null : i)}
-                className="w-full p-6 text-left flex justify-between items-center hover:bg-gray-50 transition-colors"
+                className="w-full p-6 text-left flex justify-between items-center hover:bg-lit-pastel transition-colors"
               >
                 <span className="font-bold text-sm tracking-tight">{faq.question}</span>
                 {openIndex === i ? <Minus size={18} className="text-lit-purple" /> : <Plus size={18} className="text-lit-purple" />}
@@ -55,7 +55,7 @@ export const FAQ: React.FC = () => {
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.3 }}
                   >
-                    <div className="px-6 pb-6 text-sm text-gray-500 font-light leading-relaxed">
+                    <div className="px-6 pb-6 text-sm text-lit-purple/60 font-light leading-relaxed">
                       {faq.answer}
                     </div>
                   </motion.div>

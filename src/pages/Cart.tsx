@@ -29,7 +29,7 @@ export const Cart: React.FC = () => {
   }
 
   return (
-    <div className="pt-32 pb-24">
+    <div className="pt-32 pb-24 bg-white min-h-screen">
       <div className="max-w-7xl mx-auto px-6">
         <h1 className="text-4xl md:text-6xl font-bold tracking-tighter mb-16">Tu Carrito</h1>
 
@@ -46,12 +46,12 @@ export const Cart: React.FC = () => {
             {cartItems.map(item => (
               <div key={`${item.productId}-${item.packId}`} className="grid grid-cols-1 md:grid-cols-6 gap-6 items-center border-b border-gray-100 pb-8">
                 <div className="col-span-1 md:col-span-3 flex gap-6">
-                  <div className="w-24 h-24 bg-lit-pastel flex-shrink-0">
+                  <div className="w-24 h-24 bg-lit-pastel flex-shrink-0 border border-gray-100">
                     <img src={item.product?.image} alt={item.product?.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   </div>
                   <div className="flex flex-col justify-center">
                     <Link to={`/product/${item.productId}`} className="font-bold text-lit-purple hover:text-lit-green transition-colors">{item.product?.name}</Link>
-                    <span className="text-xs text-gray-400 mt-1">{item.product?.format}</span>
+                    <span className="text-xs text-lit-purple/40 mt-1">{item.product?.format}</span>
                     <button 
                       onClick={() => removeFromCart(item.productId, item.packId)}
                       className="text-[10px] uppercase tracking-widest font-bold text-red-400 mt-4 flex items-center gap-1 hover:text-red-600 transition-colors"
@@ -69,7 +69,7 @@ export const Cart: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="hidden md:block text-right text-sm font-medium text-gray-500">
+                <div className="hidden md:block text-right text-sm font-medium text-lit-purple/50">
                   ${item.product?.price.toFixed(2)}
                 </div>
 
@@ -82,16 +82,16 @@ export const Cart: React.FC = () => {
 
           {/* Summary */}
           <div className="lg:col-span-1">
-            <div className="bg-lit-pastel p-10 sticky top-32">
+            <div className="bg-lit-pastel p-10 sticky top-32 border border-gray-100">
               <h3 className="text-xl font-bold tracking-tight mb-8">Resumen del pedido</h3>
               
               <div className="space-y-4 mb-10">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Subtotal</span>
+                  <span className="text-lit-purple/50">Subtotal</span>
                   <span className="font-bold">${cartTotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Envío</span>
+                  <span className="text-lit-purple/50">Envío</span>
                   <span className="text-xs uppercase tracking-widest font-bold text-lit-green">Calculado en checkout</span>
                 </div>
                 <div className="pt-4 border-t border-gray-200 flex justify-between items-end">
@@ -122,7 +122,7 @@ export const Cart: React.FC = () => {
                 <ArrowRight size={18} />
               </button>
 
-              <p className="text-[10px] text-center text-gray-400 mt-6 uppercase tracking-widest font-bold">
+              <p className="text-[10px] text-center text-lit-purple/40 mt-6 uppercase tracking-widest font-bold">
                 Cierre de venta vía WhatsApp
               </p>
             </div>

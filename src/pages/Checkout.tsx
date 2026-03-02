@@ -137,7 +137,11 @@ Por favor confirmar disponibilidad y método de pago.`;
         // 3. Clear Cart and Show Confirmation
         clearCart();
         setSubmittedOrder(finalOrder);
-        window.open(whatsappUrl, '_blank');
+        
+        // 4. Automatic Redirect to WhatsApp
+        setTimeout(() => {
+          window.location.href = whatsappUrl;
+        }, 500);
       }
     } catch (error) {
       alert('Error al procesar el pedido. Por favor intenta de nuevo.');
@@ -158,22 +162,34 @@ Por favor confirmar disponibilidad y método de pago.`;
 
   if (submittedOrder) {
     return (
-      <div className="pt-32 pb-24 bg-lit-pastel min-h-screen flex items-center justify-center px-6">
-        <div className="max-w-md w-full bg-white p-10 shadow-sm text-center">
+      <div className="pt-32 pb-24 bg-white min-h-screen flex items-center justify-center px-6">
+        <div className="max-w-md w-full bg-white p-10 shadow-sm text-center border border-gray-100">
           <div className="w-20 h-20 bg-lit-green/20 text-lit-green rounded-full flex items-center justify-center mx-auto mb-8">
             <MessageCircle size={40} />
           </div>
           <h2 className="text-3xl font-bold tracking-tighter mb-4">¡Pedido Recibido!</h2>
-          <p className="text-gray-500 mb-8">
+          <p className="text-lit-purple/50 mb-8">
             Tu pedido <span className="font-bold text-lit-purple">{submittedOrder.id}</span> ha sido registrado. 
             Se ha abierto WhatsApp para que confirmes tu compra con un asesor.
           </p>
           
           <div className="space-y-4">
+            <button 
+              onClick={() => {
+                const itemsText = submittedOrder.items.map(i => `- ${i.name} (${i.format}) ${i.qty} x $${i.price.toFixed(2)} = $${i.total.toFixed(2)}`).join('\n');
+                const message = `🧾 NUEVO PEDIDO – LIT\nPedido: ${submittedOrder.id}\nFecha: ${submittedOrder.date}\nCliente: ${submittedOrder.customer_name}\nTeléfono: ${submittedOrder.customer_phone}\nEmail: ${submittedOrder.customer_email || 'N/A'}\nEntrega: ${submittedOrder.delivery_method}\nDirección: ${submittedOrder.address}\n\nITEMS:\n${itemsText}\n\nSubtotal: $${submittedOrder.subtotal.toFixed(2)}\nEnvío: $${submittedOrder.shipping.toFixed(2)}\nTOTAL: $${submittedOrder.total.toFixed(2)}\n\nNotas: ${submittedOrder.notes || '—'}\n\nPor favor confirmar disponibilidad y método de pago.`;
+                const whatsappUrl = `https://wa.me/${settings?.whatsapp_number.replace(/\+/g, '')}?text=${encodeURIComponent(message)}`;
+                window.location.href = whatsappUrl;
+              }}
+              className="w-full btn-primary py-4 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 border-none"
+            >
+              <MessageCircle size={20} />
+              <span>Reabrir WhatsApp</span>
+            </button>
             <button onClick={copySummary} className="w-full btn-secondary py-4 flex items-center justify-center gap-2">
               <span>Copiar resumen</span>
             </button>
-            <button onClick={() => navigate('/')} className="w-full btn-primary py-4">
+            <button onClick={() => navigate('/')} className="w-full btn-secondary py-4">
               Volver al inicio
             </button>
           </div>
@@ -183,7 +199,7 @@ Por favor confirmar disponibilidad y método de pago.`;
   }
 
   return (
-    <div className="pt-32 pb-24 bg-lit-pastel min-h-screen">
+    <div className="pt-32 pb-24 bg-white min-h-screen">
       <div className="max-w-7xl mx-auto px-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
           {/* Form Side */}
@@ -192,7 +208,7 @@ Por favor confirmar disponibilidad y método de pago.`;
               <ArrowLeft size={14} /> Volver al carrito
             </button>
             
-            <div className="bg-white p-10 shadow-sm">
+            <div className="bg-white p-10 shadow-sm border border-gray-100">
               <div className="flex gap-4 mb-10">
                 <div className={`flex-1 h-1 ${step >= 1 ? 'bg-lit-purple' : 'bg-gray-100'}`} />
                 <div className={`flex-1 h-1 ${step >= 2 ? 'bg-lit-purple' : 'bg-gray-100'}`} />
@@ -267,20 +283,20 @@ Por favor confirmar disponibilidad y método de pago.`;
                   
                   <div className="space-y-6 text-sm">
                     <div className="grid grid-cols-2 gap-4 border-b border-gray-100 pb-4">
-                      <span className="text-gray-400 uppercase tracking-widest font-bold text-[10px]">Cliente</span>
+                      <span className="text-lit-purple/40 uppercase tracking-widest font-bold text-[10px]">Cliente</span>
                       <span className="font-bold text-right">{formData.customer_name}</span>
                     </div>
                     <div className="grid grid-cols-2 gap-4 border-b border-gray-100 pb-4">
-                      <span className="text-gray-400 uppercase tracking-widest font-bold text-[10px]">Teléfono</span>
+                      <span className="text-lit-purple/40 uppercase tracking-widest font-bold text-[10px]">Teléfono</span>
                       <span className="font-bold text-right">{formData.customer_phone}</span>
                     </div>
                     <div className="grid grid-cols-2 gap-4 border-b border-gray-100 pb-4">
-                      <span className="text-gray-400 uppercase tracking-widest font-bold text-[10px]">Entrega</span>
+                      <span className="text-lit-purple/40 uppercase tracking-widest font-bold text-[10px]">Entrega</span>
                       <span className="font-bold text-right">{formData.delivery_method}</span>
                     </div>
                     {formData.delivery_method === 'Envío' && (
                       <div className="grid grid-cols-2 gap-4 border-b border-gray-100 pb-4">
-                        <span className="text-gray-400 uppercase tracking-widest font-bold text-[10px]">Dirección</span>
+                        <span className="text-lit-purple/40 uppercase tracking-widest font-bold text-[10px]">Dirección</span>
                         <span className="font-bold text-right">{formData.address}, {formData.city}</span>
                       </div>
                     )}
@@ -309,17 +325,17 @@ Por favor confirmar disponibilidad y método de pago.`;
 
           {/* Summary Side */}
           <div className="hidden lg:block">
-            <div className="bg-white p-10 sticky top-32 border border-gray-100">
+            <div className="bg-white p-10 sticky top-32 border border-gray-100 shadow-sm">
               <h3 className="text-xl font-bold tracking-tight mb-8">Tu Pedido</h3>
               <div className="space-y-6 mb-10 max-h-[400px] overflow-y-auto pr-4">
                 {cartItems.map(item => (
                   <div key={`${item.productId}-${item.packId}`} className="flex gap-4">
-                    <div className="w-16 h-16 bg-lit-pastel flex-shrink-0">
+                    <div className="w-16 h-16 bg-lit-pastel flex-shrink-0 border border-gray-100">
                       <img src={item.product?.image} alt={item.product?.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     </div>
                     <div className="flex-1">
                       <h4 className="text-sm font-bold">{item.product?.name}</h4>
-                      <p className="text-xs text-gray-400">Cant: {item.quantity}</p>
+                      <p className="text-xs text-lit-purple/40">Cant: {item.quantity}</p>
                     </div>
                     <span className="text-sm font-bold">${(item.product!.price * item.quantity).toFixed(2)}</span>
                   </div>
@@ -328,11 +344,11 @@ Por favor confirmar disponibilidad y método de pago.`;
 
               <div className="space-y-4 pt-6 border-t border-gray-100">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Subtotal</span>
+                  <span className="text-lit-purple/50">Subtotal</span>
                   <span className="font-bold">${cartTotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Envío ({formData.delivery_method})</span>
+                  <span className="text-lit-purple/50">Envío ({formData.delivery_method})</span>
                   <span className="font-bold">${shippingFee.toFixed(2)}</span>
                 </div>
                 <div className="pt-4 border-t border-gray-200 flex justify-between items-end">

@@ -12,6 +12,7 @@ import { About } from './pages/About';
 import { FAQ } from './pages/FAQ';
 import { Contact } from './pages/Contact';
 import { CartProvider, useCart } from './context/CartContext';
+import ScrollToTop from './components/ScrollToTop';
 import { X, Leaf } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -21,6 +22,7 @@ const AppContent = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <ScrollToTop />
       <Header cartCount={cartCount} onMenuToggle={() => setIsMenuOpen(true)} />
       
       {/* Mobile Menu Overlay */}

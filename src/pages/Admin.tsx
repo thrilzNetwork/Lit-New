@@ -131,8 +131,9 @@ export const Admin: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(authForm)
       });
-      const data = await res.json();
+      
       if (res.ok) {
+        const data = await res.json();
         if (isLogin) {
           setCurrentUser(data);
           fetchData();
@@ -142,10 +143,12 @@ export const Admin: React.FC = () => {
           setIsLogin(true);
         }
       } else {
-        setAuthError(data.error);
+        const errorData = await res.json().catch(() => ({ error: `Error del servidor (${res.status})` }));
+        setAuthError(errorData.error || `Error ${res.status}`);
       }
     } catch (err) {
-      setAuthError('Error de conexión');
+      console.error("Auth error:", err);
+      setAuthError('Error de red o servidor no disponible');
     }
   };
 
@@ -259,7 +262,8 @@ export const Admin: React.FC = () => {
     const formData = new FormData(e.currentTarget);
     const data = {
       whatsapp_number: formData.get('whatsapp_number'),
-      shipping_fee: formData.get('shipping_fee')
+      shipping_fee: formData.get('shipping_fee'),
+      hero_image: formData.get('hero_image')
     };
     const res = await fetch('/api/settings', {
       method: 'POST',
@@ -315,14 +319,14 @@ export const Admin: React.FC = () => {
 
   if (!currentUser) {
     return (
-      <div className="pt-40 pb-24 bg-gray-50 min-h-screen flex items-center justify-center px-6">
+      <div className="pt-40 pb-24 bg-white min-h-screen flex items-center justify-center px-6">
         <div className="bg-white border border-gray-100 p-10 max-w-md w-full shadow-xl">
           <div className="text-center mb-10">
             <div className="w-16 h-16 bg-lit-purple text-white rounded-full flex items-center justify-center mx-auto mb-4">
               <ShieldCheck size={32} />
             </div>
             <h1 className="text-3xl font-bold tracking-tighter">Acceso CRM LIT</h1>
-            <p className="text-gray-500 font-light">{isLogin ? 'Inicia sesión para gestionar la tienda' : 'Regístrate para solicitar acceso'}</p>
+            <p className="text-lit-purple/50 font-light">{isLogin ? 'Inicia sesión para gestionar la tienda' : 'Regístrate para solicitar acceso'}</p>
           </div>
 
           <form onSubmit={handleAuth} className="space-y-6">
@@ -365,6 +369,22 @@ export const Admin: React.FC = () => {
               {isLogin ? <LogIn size={18} /> : <UserPlus size={18} />}
               {isLogin ? 'Entrar' : 'Registrarse'}
             </button>
+            
+            <button 
+              type="button"
+              onClick={async () => {
+                try {
+                  const res = await fetch('/api/health');
+                  const data = await res.json();
+                  alert(`Conexión OK: ${data.database} (${data.env})`);
+                } catch (err) {
+                  alert('Error de conexión con el servidor');
+                }
+              }}
+              className="w-full py-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-lit-purple transition-colors"
+            >
+              Probar Conexión
+            </button>
           </form>
 
           <div className="mt-8 pt-8 border-t border-gray-100 text-center">
@@ -381,7 +401,7 @@ export const Admin: React.FC = () => {
   }
 
   return (
-    <div className="pt-32 pb-24 bg-gray-50 min-h-screen">
+    <div className="pt-32 pb-24 bg-white min-h-screen">
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-6">
           <div>
@@ -389,7 +409,7 @@ export const Admin: React.FC = () => {
               <span className="text-[10px] uppercase tracking-widest font-bold px-2 py-0.5 bg-lit-purple text-white">
                 {currentUser.role === 'admin' ? 'Administrador' : 'Ventas'}
               </span>
-              <span className="text-xs text-gray-400 font-bold uppercase tracking-widest">Bienvenido, {currentUser.name}</span>
+              <span className="text-xs text-lit-purple/40 font-bold uppercase tracking-widest">Bienvenido, {currentUser.name}</span>
             </div>
             <h1 className="text-4xl font-bold tracking-tighter">Central CRM LIT</h1>
           </div>
@@ -1068,6 +1088,17 @@ export const Admin: React.FC = () => {
               <div className="space-y-2">
                 <label className="text-[10px] uppercase tracking-widest font-bold text-gray-400">Tarifa de Envío Fija ({settings?.currency})</label>
                 <input type="number" name="shipping_fee" defaultValue={settings?.shipping_fee} className="input-lit" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase tracking-widest font-bold text-gray-400">Imagen de Promoción (Hero)</label>
+                <div className="flex gap-4">
+                  <input type="text" name="hero_image" defaultValue={settings?.hero_image} className="input-lit flex-1" placeholder="URL de la imagen" />
+                </div>
+                {settings?.hero_image && (
+                  <div className="mt-2 w-32 h-20 border border-gray-100 overflow-hidden">
+                    <img src={settings.hero_image} alt="Hero Promo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  </div>
+                )}
               </div>
               <button type="submit" className="btn-primary w-full">Guardar Cambios</button>
             </form>
