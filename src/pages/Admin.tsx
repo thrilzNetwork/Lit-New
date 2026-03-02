@@ -378,14 +378,19 @@ export const Admin: React.FC = () => {
               onClick={async () => {
                 try {
                   const res = await fetch('/api/health');
+                  if (!res.ok) {
+                    const text = await res.text();
+                    alert(`Error del Servidor (${res.status}): El servidor respondió con un error. \n\nDetalle: ${text.slice(0, 100)}...`);
+                    return;
+                  }
                   const data = await res.json();
                   if (data.dbStatus === 'connected') {
                     alert(`Conexión OK: Base de datos ${data.database} conectada correctamente.`);
                   } else {
-                    alert(`Error en Base de Datos: ${data.dbStatus}\n\nVerifica que hayas configurado POSTGRES_URL en Vercel.`);
+                    alert(`Error en Base de Datos: ${data.dbStatus}\n\nVerifica que hayas configurado POSTGRES_URL en Vercel con la cadena de conexión de Supabase.`);
                   }
                 } catch (err) {
-                  alert('Error de conexión con el servidor. El backend podría estar caído.');
+                  alert('Error de red: No se pudo contactar con el servidor. Revisa tu conexión a internet o si la URL es correcta.');
                 }
               }}
               className="w-full py-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-lit-purple transition-colors"

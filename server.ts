@@ -21,12 +21,25 @@ const __dirname = path.dirname(__filename);
 const usePostgres = !!process.env.POSTGRES_URL || !!process.env.DATABASE_URL || !!process.env.POSTGRES_URL_NON_POOLING;
 const postgresUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL || process.env.POSTGRES_URL_NON_POOLING;
 
-let pool: any = null;
 if (usePostgres) {
-  pool = new Pool({
-    connectionString: postgresUrl,
-    ssl: postgresUrl?.includes("localhost") ? false : { rejectUnauthorized: false }
-  });
+  console.log("Postgres URL detected. Length:", postgresUrl?.length);
+  if (postgresUrl?.includes("supabase")) {
+    console.log("Supabase connection detected.");
+  }
+}
+
+let pool: any = null;
+if (usePostgres && postgresUrl) {
+  try {
+    pool = new Pool({
+      connectionString: postgresUrl,
+      ssl: postgresUrl.includes("localhost") ? false : { rejectUnauthorized: false },
+      connectionTimeoutMillis: 10000, // 10s timeout
+    });
+    console.log("Database pool created.");
+  } catch (err) {
+    console.error("Error creating database pool:", err);
+  }
 }
 
 let sqliteDb: any = null;
@@ -91,11 +104,8 @@ const exec = async (text: string) => {
       if (!pool) {
         throw new Error("La conexión a Postgres no está inicializada.");
       }
-      // Split by semicolon and run each
-      const statements = text.split(';').filter(s => s.trim());
-      for (const s of statements) {
-        await pool.query(s);
-      }
+      // pg supports multiple statements in one query string
+      await pool.query(text);
     } else {
       const db = await getSqliteDb();
       db.exec(text);
@@ -199,7 +209,6 @@ const initDb = async () => {
     const hasStatus = columns.some((c: any) => (c.column_name || c.name) === 'status');
 
     if (!hasRole || !hasStatus) {
-      console.log("Running migrations for users table...");
       if (usePostgres) {
         if (!hasRole) await query("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'sales'");
         if (!hasStatus) await query("ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'pending'");
@@ -207,139 +216,131 @@ const initDb = async () => {
         if (!hasRole) await query("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'sales'");
         if (!hasStatus) await query("ALTER TABLE users ADD COLUMN status TEXT DEFAULT 'pending'");
       }
-      console.log("Migrations completed.");
     }
   } catch (err: any) {
     console.warn("Migration notice (users table):", err.message);
   }
 
   // Seed Products if empty
-  const countRes = await getOne("SELECT COUNT(*) as count FROM products");
-  if (Number(countRes.count) === 0) {
-    const initialProducts = [
-      {
-        id: "aliviah-fem",
-        name: "ALIVIAH FEM",
-        format: "Cápsulas",
-        specs: "60 cápsulas, 550 mg",
-        category: "Bienestar femenino",
-        price: 35.00,
-        image: "https://picsum.photos/seed/aliviah/800/800",
-        badge: "Recomendado",
-        focus: "Bienestar femenino y balance del ciclo",
-        benefits: JSON.stringify(["Relajación", "Equilibrio", "Apoyo mental/emocional", "Descanso reparador", "Reducir tensión", "Calma/armonía"]),
-        usage: "Tomar 2 cápsulas al día, preferiblemente con alimentos.",
-        ingredients: "Extractos naturales, Vitaminas del complejo B, Magnesio."
-      },
-      {
-        id: "harmonia",
-        name: "HARMONIA",
-        format: "Polvo",
-        specs: "200 g, 20 servicios",
-        category: "Relajación y equilibrio",
-        price: 42.00,
-        image: "https://picsum.photos/seed/harmonia/800/800",
-        badge: "Best Seller",
-        focus: "Equilibrio emocional, calma, claridad mental, ánimo estable",
-        benefits: JSON.stringify(["Relajación", "Bienestar mental/emocional", "Descanso reparador", "Reducir tensión", "Calma/armonía"]),
-        usage: "Mezclar una medida (10g) en 200ml de agua o tu bebida favorita.",
-        ingredients: "L-Teanina, Ashwagandha, Magnesio, GABA."
-      },
-      {
-        id: "osteofort",
-        name: "OSTEOFORT",
-        format: "Polvo",
-        specs: "350 g, 18 servicios",
-        category: "Salud ósea y articulaciones",
-        price: 38.00,
-        image: "https://picsum.photos/seed/osteofort/800/800",
-        badge: "Nuevo",
-        focus: "Fortalecer huesos y articulaciones, movilidad",
-        benefits: JSON.stringify(["Fortalece huesos/dientes", "Salud ósea largo plazo", "Movilidad", "Resistencia", "Bienestar físico diario"]),
-        usage: "Mezclar una medida en agua una vez al día.",
-        ingredients: "Calcio, Vitamina D3, Colágeno Hidrolizado, Magnesio."
-      },
-      {
-        id: "resver-plus",
-        name: "RESVER PLUS",
-        format: "Gotero",
-        specs: "50 ml, 25 servicios",
-        category: "Antioxidantes y longevidad",
-        price: 29.00,
-        image: "https://picsum.photos/seed/resver/800/800",
-        badge: "Premium",
-        focus: "Antioxidantes, resveratrol, salud cardiovascular, longevidad",
-        benefits: JSON.stringify(["Antioxidantes", "Combate daño oxidativo", "Rejuvenecimiento celular", "Protección", "Cuidado integral"]),
-        usage: "2ml (aprox. 40 gotas) directamente en la boca o en agua.",
-        ingredients: "Resveratrol puro, Vitamina E, Extracto de semilla de uva."
-      },
-      {
-        id: "concentra-pro",
-        name: "CONCENTRA PRO",
-        format: "Polvo",
-        specs: "200 g, 20 servicios",
-        category: "Mente y enfoque",
-        price: 45.00,
-        image: "https://picsum.photos/seed/concentra/800/800",
-        badge: "Performance",
-        focus: "Concentración, enfoque mental, rendimiento físico/mental",
-        benefits: JSON.stringify(["Enfoque", "Rendimiento", "Reduce fatiga", "Aporta energía", "Ideal jornadas exigentes"]),
-        usage: "Mezclar una medida en agua 30 minutos antes de actividad mental intensa.",
-        ingredients: "Cafeína anhidra, L-Tirosina, Bacopa Monnieri, Vitaminas B6/B12."
-      },
-      {
-        id: "aura-verde-detox",
-        name: "AURA VERDE DETOX",
-        format: "Polvo",
-        specs: "350 g, 12 servicios",
-        category: "Detox y digestión",
-        price: 32.00,
-        image: "https://picsum.photos/seed/detox/800/800",
-        badge: "Natural",
-        focus: "Depuración, digestión, tránsito intestinal, ligereza",
-        benefits: JSON.stringify(["Eliminar toxinas", "Digestión/tránsito", "Ligereza/energía", "Hábitos saludables", "Bienestar general"]),
-        usage: "Mezclar una medida en ayunas con agua tibia.",
-        ingredients: "Espirulina, Chlorella, Fibra de manzana, Probióticos."
-      },
-      {
-        id: "calibrum",
-        name: "CALIBRUM",
-        format: "Cápsulas",
-        specs: "60 cápsulas, 550 mg",
-        category: "Definición",
-        price: 48.00,
-        image: "https://picsum.photos/seed/calibrum/800/800",
-        badge: "Control",
-        focus: "Definición, control de peso, termogénesis natural, glucosa",
-        benefits: JSON.stringify(["Control de peso saludable", "Figura equilibrada", "Complementa alimentación", "Termogénesis", "Regula glucosa"]),
-        usage: "Tomar 1 cápsula antes del desayuno y 1 antes de la comida.",
-        ingredients: "Extracto de té verde, Garcinia Cambogia, Picolinato de Cromo."
-      }
-    ];
-
-    for (const p of initialProducts) {
-      await query(`
-        INSERT INTO products (id, name, format, specs, category, price, image, badge, focus, benefits, usage, ingredients)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [p.id, p.name, p.format, p.specs, p.category, p.price, p.image, p.badge, p.focus, p.benefits, p.usage, p.ingredients]);
+  const initialProducts = [
+    {
+      id: "aliviah-fem",
+      name: "ALIVIAH FEM",
+      format: "Cápsulas",
+      specs: "60 cápsulas, 550 mg",
+      category: "Bienestar femenino",
+      price: 35.00,
+      image: "https://picsum.photos/seed/aliviah/800/800",
+      badge: "Recomendado",
+      focus: "Bienestar femenino y balance del ciclo",
+      benefits: JSON.stringify(["Relajación", "Equilibrio", "Apoyo mental/emocional", "Descanso reparador", "Reducir tensión", "Calma/armonía"]),
+      usage: "Tomar 2 cápsulas al día, preferiblemente con alimentos.",
+      ingredients: "Extractos naturales, Vitaminas del complejo B, Magnesio."
+    },
+    {
+      id: "harmonia",
+      name: "HARMONIA",
+      format: "Polvo",
+      specs: "200 g, 20 servicios",
+      category: "Relajación y equilibrio",
+      price: 42.00,
+      image: "https://picsum.photos/seed/harmonia/800/800",
+      badge: "Best Seller",
+      focus: "Equilibrio emocional, calma, claridad mental, ánimo estable",
+      benefits: JSON.stringify(["Relajación", "Bienestar mental/emocional", "Descanso reparador", "Reducir tensión", "Calma/armonía"]),
+      usage: "Mezclar una medida (10g) en 200ml de agua o tu bebida favorita.",
+      ingredients: "L-Teanina, Ashwagandha, Magnesio, GABA."
+    },
+    {
+      id: "osteofort",
+      name: "OSTEOFORT",
+      format: "Polvo",
+      specs: "350 g, 18 servicios",
+      category: "Salud ósea y articulaciones",
+      price: 38.00,
+      image: "https://picsum.photos/seed/osteofort/800/800",
+      badge: "Nuevo",
+      focus: "Fortalecer huesos y articulaciones, movilidad",
+      benefits: JSON.stringify(["Fortalece huesos/dientes", "Salud ósea largo plazo", "Movilidad", "Resistencia", "Bienestar físico diario"]),
+      usage: "Mezclar una medida en agua una vez al día.",
+      ingredients: "Calcio, Vitamina D3, Colágeno Hidrolizado, Magnesio."
+    },
+    {
+      id: "resver-plus",
+      name: "RESVER PLUS",
+      format: "Gotero",
+      specs: "50 ml, 25 servicios",
+      category: "Antioxidantes y longevidad",
+      price: 29.00,
+      image: "https://picsum.photos/seed/resver/800/800",
+      badge: "Premium",
+      focus: "Antioxidantes, resveratrol, salud cardiovascular, longevidad",
+      benefits: JSON.stringify(["Antioxidantes", "Combate daño oxidativo", "Rejuvenecimiento celular", "Protección", "Cuidado integral"]),
+      usage: "2ml (aprox. 40 gotas) directamente en la boca o en agua.",
+      ingredients: "Resveratrol puro, Vitamina E, Extracto de semilla de uva."
+    },
+    {
+      id: "concentra-pro",
+      name: "CONCENTRA PRO",
+      format: "Polvo",
+      specs: "200 g, 20 servicios",
+      category: "Mente y enfoque",
+      price: 45.00,
+      image: "https://picsum.photos/seed/concentra/800/800",
+      badge: "Performance",
+      focus: "Concentración, enfoque mental, rendimiento físico/mental",
+      benefits: JSON.stringify(["Enfoque", "Rendimiento", "Reduce fatiga", "Aporta energía", "Ideal jornadas exigentes"]),
+      usage: "Mezclar una medida en agua 30 minutos antes de actividad mental intensa.",
+      ingredients: "Cafeína anhidra, L-Tirosina, Bacopa Monnieri, Vitaminas B6/B12."
+    },
+    {
+      id: "aura-verde-detox",
+      name: "AURA VERDE DETOX",
+      format: "Polvo",
+      specs: "350 g, 12 servicios",
+      category: "Detox y digestión",
+      price: 32.00,
+      image: "https://picsum.photos/seed/detox/800/800",
+      badge: "Natural",
+      focus: "Depuración, digestión, tránsito intestinal, ligereza",
+      benefits: JSON.stringify(["Eliminar toxinas", "Digestión/tránsito", "Ligereza/energía", "Hábitos saludables", "Bienestar general"]),
+      usage: "Mezclar una medida en ayunas con agua tibia.",
+      ingredients: "Espirulina, Chlorella, Fibra de manzana, Probióticos."
+    },
+    {
+      id: "calibrum",
+      name: "CALIBRUM",
+      format: "Cápsulas",
+      specs: "60 cápsulas, 550 mg",
+      category: "Definición",
+      price: 48.00,
+      image: "https://picsum.photos/seed/calibrum/800/800",
+      badge: "Control",
+      focus: "Definición, control de peso, termogénesis natural, glucosa",
+      benefits: JSON.stringify(["Control de peso saludable", "Figura equilibrada", "Complementa alimentación", "Termogénesis", "Regula glucosa"]),
+      usage: "Tomar 1 cápsula antes del desayuno and 1 antes de la comida.",
+      ingredients: "Extracto de té verde, Garcinia Cambogia, Picolinato de Cromo."
     }
+  ];
+
+  for (const p of initialProducts) {
+    await query(`
+      INSERT INTO products (id, name, format, specs, category, price, image, badge, focus, benefits, usage, ingredients)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT (id) DO NOTHING
+    `, [p.id, p.name, p.format, p.specs, p.category, p.price, p.image, p.badge, p.focus, p.benefits, p.usage, p.ingredients]);
   }
 
-  // Seed Promos if empty
-  const promoCountRes = await getOne("SELECT COUNT(*) as count FROM promos");
-  if (Number(promoCountRes.count) === 0) {
-    await query("INSERT INTO promos (title, description, code, discount) VALUES (?, ?, ?, ?)", [
-      "Bienvenida LIT",
-      "10% de descuento en tu primera compra",
-      "LIT10",
-      "10%"
-    ]);
-  }
+  // Seed Promos
+  await query(`
+    INSERT INTO promos (title, description, code, discount) 
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT DO NOTHING
+  `, ["Bienvenida LIT", "10% de descuento en tu primera compra", "LIT10", "10%"]);
 
   // Initial settings
-  await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ["whatsapp_number", process.env.NEXT_PUBLIC_WHATSAPP_SALES || process.env.WHATSAPP_SALES || "+59178299604"]);
-  // Migration: Update if it's the old default
-  await query("UPDATE settings SET value = ? WHERE key = 'whatsapp_number' AND value = '+15557089007'", ["+59178299604"]);
+  const whatsapp = process.env.NEXT_PUBLIC_WHATSAPP_SALES || process.env.WHATSAPP_SALES || "+59178299604";
+  await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ["whatsapp_number", whatsapp]);
   await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ["currency", process.env.NEXT_PUBLIC_CURRENCY || process.env.CURRENCY || "USD"]);
   await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ["shipping_fee", process.env.NEXT_PUBLIC_SHIPPING_FLAT || process.env.SHIPPING_FLAT || "10"]);
   await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ["hero_image", "https://picsum.photos/seed/wellness/1920/1080?grayscale"]);
@@ -347,20 +348,15 @@ const initDb = async () => {
   await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ["hero_subtitle", "Suplementos premium diseñados en laboratorio para potenciar tu equilibrio mental y rendimiento físico."]);
   await query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING", ["hero_badge", "Bienestar + Performance"]);
 
-  // Create default admin if not exists
+  // Create default admin
   const adminEmail = process.env.ADMIN_USER || "admin@lit.com";
   const adminPass = process.env.ADMIN_PASS || "admin123";
-  const existingAdmin = await getOne("SELECT * FROM users WHERE email = ?", [adminEmail]);
-  if (!existingAdmin) {
-    const hashedPassword = bcrypt.hashSync(adminPass, 10);
-    await query("INSERT INTO users (email, password, name, role, status) VALUES (?, ?, ?, ?, ?)", [
-      adminEmail,
-      hashedPassword,
-      "Administrador LIT",
-      "admin",
-      "approved"
-    ]);
-  }
+  const hashedPassword = bcrypt.hashSync(adminPass, 10);
+  await query(`
+    INSERT INTO users (email, password, name, role, status) 
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT (email) DO NOTHING
+  `, [adminEmail, hashedPassword, "Administrador LIT", "admin", "approved"]);
 };
 
 declare module "express-session" {
